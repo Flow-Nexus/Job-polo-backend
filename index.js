@@ -1,0 +1,72 @@
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import { PrismaClient } from "./generated/prisma/index.js";
+// import userRoutes from "./routes/appRoutes/userRoutes.js";
+// import operatorRoutes from "./routes/appRoutes/operatorRoutes.js";
+// import subscribeRoutes from "./routes/websiteRoutes/subscribeRoutes.js";
+// import categoriesRoutes from "./routes/appRoutes/categoriesRoutes.js";
+// import paymentRoutes from "./routes/appRoutes/paymentRoutes.js";
+// import adminRoutes from "./routes/appRoutes/adminAllRoutes.js";
+// import { createServer } from "http";
+// import { Server } from "socket.io";
+
+dotenv.config();
+
+const app = express();
+const prisma = new PrismaClient();
+const PORT = process.env.PORT || 6800;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Database connection
+prisma
+  .$connect()
+  .then(() => {
+    console.log("🗄️  Connected to the MySQL database successfully.");
+  })
+  .catch((e) => {
+    console.error("Failed to connect to the MySQL database:", e);
+  });
+
+//App Routes
+// app.use("/api/v1/admin", adminRoutes);
+// app.use("/api/v1/operator", operatorRoutes);
+// app.use("/api/v1/categories", categoriesRoutes);
+// app.use("/api/v1/payment", paymentRoutes);
+// app.use("/api/v1/user", userRoutes);
+
+// //Website Routes
+// app.use("/api/v1/subscribe", subscribeRoutes);
+
+// Local dev server
+if (process.env.NODE_ENV !== "production") {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+  });
+}
+
+// Export app for Vercel
+export default app;
+
+// // Socket.IO Setup
+// io.on("connection", (socket) => {
+//   console.log(`User connected: ${socket.id}`);
+
+//   socket.on("disconnect", () => {
+//     console.log(`User disconnected: ${socket.id}`);
+//   });
+// });
+
+// // Start server after confirming DB connection
+// if (process.env.NODE_ENV !== "production") {
+//   app.listen(PORT, () => {
+//     console.log(`🚀 Server running on http://localhost:${PORT}`);
+//     console.log(`🌐 WebSocket running on ws://localhost:${PORT}`);
+//   });
+// }
+
+// export default { app, io };
