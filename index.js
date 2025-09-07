@@ -2,12 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { PrismaClient } from "./generated/prisma/index.js";
-import employeeAuth from "./routes/authRoutes/employerRoutes.js";
-// import operatorRoutes from "./routes/appRoutes/operatorRoutes.js";
-// import subscribeRoutes from "./routes/websiteRoutes/subscribeRoutes.js";
-// import categoriesRoutes from "./routes/appRoutes/categoriesRoutes.js";
-// import paymentRoutes from "./routes/appRoutes/paymentRoutes.js";
-// import adminRoutes from "./routes/appRoutes/adminAllRoutes.js";
+import employeeAuth from "./routes/authRoutes/employeeRoutes.js";
 // import { createServer } from "http";
 // import { Server } from "socket.io";
 
@@ -32,15 +27,8 @@ prisma
     console.error("Failed to connect to the MySQL database:", e);
   });
 
-//App Routes
-// app.use("/api/v1/admin", adminRoutes);
-// app.use("/api/v1/operator", operatorRoutes);
-// app.use("/api/v1/categories", categoriesRoutes);
-// app.use("/api/v1/payment", paymentRoutes);
+//Routes
 app.use("/api/v1/employee/auth", employeeAuth);
-
-// //Website Routes
-// app.use("/api/v1/subscribe", subscribeRoutes);
 
 // Local dev server
 if (process.env.NODE_ENV !== "production") {

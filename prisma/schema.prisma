@@ -62,19 +62,11 @@ model User {
 
   // Profile address (only one)
   profileAddressId String?      @unique
-  profileAddress   UserAddress? @relation("UserToProfileAddress", fields: [profileAddressId], references: [id])
+  // profileAddress   UserAddress? @relation("UserToProfileAddress", fields: [profileAddressId], references: [id])
 
-  deliveryAddresses  DeliveryAddress[]
-  submittedFeedbacks Feedback[]        @relation("SubmittedFeedbacks") // feedbacks submitted by user
-  receivedFeedbacks  Feedback[]        @relation("FeedbackToUser") // feedbacks about this user
-  carts              CartDetails[]     @relation("UserCarts")
-  createdCategories  CategoryType[]    @relation("CreatedCategoryTypes")
-  updatedCategories  CategoryType[]    @relation("UpdatedCategoryTypes")
-  createdItems       categoriesItems[] @relation("CreatedItems")
-  updatedItems       categoriesItems[] @relation("UpdatedItems")
-  AddToCart          AddToCart[]
-  Order              Order[]
-  favorites          FavoriteItem[]
+  // deliveryAddresses  DeliveryAddress[]
+  // submittedFeedbacks Feedback[]        @relation("SubmittedFeedbacks") // feedbacks submitted by user
+  // receivedFeedbacks  Feedback[]        @relation("FeedbackToUser") // feedbacks about this user
 }
 
 model OTP {

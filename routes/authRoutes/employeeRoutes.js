@@ -2,13 +2,10 @@ import express from "express";
 import {
   registerAndLogin,
   sendOTP,
-} from "../../controllers/appController/userController/authController.js";
-// import validate from "../../middleware/validate.js";
-// import {
-//   registerAndLoginValidator,
-//   sendOTPValidator,
-// } from "../../validator/appValidator/allUserValidator.js";
+} from "../../controller/authController/employeeController.js";
+import validate from "../../middleware/validate.js";
 import { userJwtToken } from "../../middleware/userJwt.js";
+import { registerAndLoginValidator, sendOTPValidator } from "../../validator/authValidator.js";
 
 
 const employeeRouter = express.Router();

@@ -1,6 +1,6 @@
 import Joi from "joi";
-import pick from "../helper/appHelper/pick.js";
 import { actionFailedResponse } from "../config/common.js";
+import pick from "../utlis/helper/pick.js";
 // import { sendActionFailedResponse } from "../helper/appHelper/common.js";
 
 const validate = (schema) => (req, res, next) => {

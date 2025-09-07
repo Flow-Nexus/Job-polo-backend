@@ -2,7 +2,6 @@ import dotenv from "dotenv";
 import { responseFlags, tokenDetails } from "./config.js";
 import jwt from "jsonwebtoken";
 import { responseMessages } from "./config.js";
-import prismaDB from "../utils/prisma.js";
 import Razorpay from "razorpay";
 import { OAuth2Client } from "google-auth-library";
 

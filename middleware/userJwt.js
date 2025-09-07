@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import prismaDB from "../utils/prisma.js";
+import prismaDB from "../utlis/prisma.js";
 import { actionFailedResponse } from "../config/common.js";
 import { responseFlags } from "../config/config.js";
 

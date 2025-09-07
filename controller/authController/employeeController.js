@@ -115,7 +115,7 @@ export const sendOTP = async (req, res) => {
  */
 export const registerAndLogin = async (req, res) => {
   try {
-    const { email, otp, googleToken } = req.body;
+    const { email,name, otp, googleToken } = req.body;
 
     // ---------1. Continue with Google Flow----------------
     if (googleToken) {
@@ -193,7 +193,7 @@ export const registerAndLogin = async (req, res) => {
 
     // -------------2. OTP Based Flow-----------------------
     // 1. Validate input
-    if (!email || !otp) {
+    if (!email || !name || !otp) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.PARAMETER_MISSING,
