@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { PrismaClient } from "./generated/prisma/index.js";
-// import userRoutes from "./routes/appRoutes/userRoutes.js";
+import employeeAuth from "./routes/authRoutes/employerRoutes.js";
 // import operatorRoutes from "./routes/appRoutes/operatorRoutes.js";
 // import subscribeRoutes from "./routes/websiteRoutes/subscribeRoutes.js";
 // import categoriesRoutes from "./routes/appRoutes/categoriesRoutes.js";
@@ -37,7 +37,7 @@ prisma
 // app.use("/api/v1/operator", operatorRoutes);
 // app.use("/api/v1/categories", categoriesRoutes);
 // app.use("/api/v1/payment", paymentRoutes);
-// app.use("/api/v1/user", userRoutes);
+app.use("/api/v1/employee/auth", employeeAuth);
 
 // //Website Routes
 // app.use("/api/v1/subscribe", subscribeRoutes);

@@ -5,7 +5,7 @@ import { actionFailedResponse } from "../config/common.js";
 
 dotenv.config();
 
-export const adminJwtToken = async (req, res, next) => {
+export const operatorJwtToken = async (req, res, next) => {
   const token = req.headers["x-access-token"];
 
   try {
@@ -13,6 +13,7 @@ export const adminJwtToken = async (req, res, next) => {
       throw new Error("Permission denied. Token is missing.");
     }
 
+    // Decode and verify the token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded._id;
 
@@ -28,10 +29,9 @@ export const adminJwtToken = async (req, res, next) => {
       throw new Error("User not found.");
     }
 
-    // Allow if role is ADMIN, OPERATOR, or USER
-    const allowedRoles = ["ADMIN", "OPERATOR", "USER"];
-    if (!allowedRoles.includes(user.role)) {
-      throw new Error("Unauthorized. Admin, Operator, or User access only.");
+    // Check if the role is OPERATOR or USER
+    if (user.role !== "OPERATOR" && user.role !== "ADMIN") {
+      throw new Error("Unauthorized. Operator or Admin access only.");
     }
 
     // Check if user is active
@@ -43,15 +43,14 @@ export const adminJwtToken = async (req, res, next) => {
       });
     }
 
-    // Attach user to request for downstream access
-    req.admin_obj_id = user.id;
-    req.adminDetails = `${user.name} - ${user.role}`;
-    console.log("objeid",req.admin_obj_id)
-    console.log("objeiddeaiial",req.adminDetails)
+    req.operator_obj_id = user.id;
+    req.operatorDetails = `${user.name} - ${user.role}`;
+    console.log("objeid",req.operator_obj_id)
+    console.log("objeiddeaiial",req.operatorDetails)
 
     return next();
   } catch (err) {
-    console.error("Admin Token Error:", err.message);
+    console.error("Operator Token Error:", err.message);
     return actionFailedResponse(res, null, err.message);
   }
 };
