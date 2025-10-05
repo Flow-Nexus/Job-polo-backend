@@ -14,61 +14,68 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ---------------- Enums ----------------
 enum RoleType {
+  EMPLOYEE
+  EMPLOYER
   ADMIN
-  USER
-  OPERATOR
-}
-
-enum AuthProvider {
-  OTP
-  GOOGLE
-  ADMIN_CREATED
 }
 
 enum UserGender {
   MALE
   FEMALE
-  TRANSGENDER
+  OTHER
 }
 
+enum AuthProvider {
+  OTP
+  GOOGLE
+  FACEBOOK
+  LINKEDIN
+  ADMIN_CREATED
+}
 
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+// ---------------- User (Base Table) ----------------
 model User {
-  id           String        @id @default(uuid())
-  email        String        @unique
-  username     String?
-  name         String?
-  countryCode  String?
-  phone        String?       @unique
-  altPhone     String?
-  gender       UserGender?
-  aadharNumber String?       @unique
-  panNumber    String?       @unique
-  cartId       String?       @unique
-  dob          String?
-  role         RoleType      @default(USER)
-  imageUrls    String?
-  previewUrls  String?
-  authProvider AuthProvider? @default(OTP)
-  is_active    Boolean       @default(true)
+  id                      String       @id @default(uuid())
+  email                   String       @unique
+  firstName               String
+  lastName                String
+  countryCode             String?
+  mobileNumber            String?      @unique
+  alternativeMobileNumber String?
+  gender                  UserGender?
+  dob                     DateTime?
+  role                    RoleType     @default(EMPLOYEE)
+  authProvider            AuthProvider @default(OTP)
+  addressId               String?      @unique
+  is_active               Boolean      @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   createdBy String?
   updatedBy String?
 
+  // Auth relations
   resetPasswordTokens ResetPasswordToken[]
   UserOTPVerification UserOTPVerification?
 
-  // Profile address (only one)
-  profileAddressId String?      @unique
-  // profileAddress   UserAddress? @relation("UserToProfileAddress", fields: [profileAddressId], references: [id])
+  // Address (optional - uncomment if you add UserAddress table)
+  address Address? @relation("address", fields: [addressId], references: [id])
 
-  // deliveryAddresses  DeliveryAddress[]
-  // submittedFeedbacks Feedback[]        @relation("SubmittedFeedbacks") // feedbacks submitted by user
-  // receivedFeedbacks  Feedback[]        @relation("FeedbackToUser") // feedbacks about this user
+  // Job platform relations
+  employee Employee?
+  employer Employer?
+  admin    Admin?
 }
 
+// ---------------- OTP & Verification ----------------
 model OTP {
   id     String @id @default(uuid())
   email  String
@@ -81,27 +88,150 @@ model OTP {
   @@index([email])
 }
 
+// ---------------- User OTP Verification ----------------
 model UserOTPVerification {
-  id    String  @id @default(uuid())
-  email String  @unique
-  otp   String?
+  id             String  @id @default(uuid())
+  userId         String  @unique
+  otp            String?
+  emailVerified  Boolean @default(false)
+  mobileVerified Boolean @default(false)
 
-  emailVerified Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  expiresAt     DateTime
+  createdAt DateTime @default(now())
+  expiresAt DateTime
 
-  user User @relation(fields: [email], references: [email], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([email, otp])
+  @@unique([userId, otp])
 }
 
+// ---------------- Reset Password Token ----------------
 model ResetPasswordToken {
-  id       String @id @default(uuid())
-  email    String
-  password String
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  password         String
+  previousPassword String[] @default([]) // Store 2 previous passwords
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [email], references: [email], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ---------------- Employee (Job Seeker) ----------------
+model Employee {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  bio                  String?
+  skills               String[]
+  experience           Int?
+  industry             String?
+  functionArea         String?
+  currentCTC           Float?
+  expectedCTC          Float?
+  TCPolicy             Boolean? @default(false)
+  resumeUrls           String[] @default([])
+  resumePreviewUrls    String[] @default([])
+  portfolioUrl         String?
+  portfolioPreviewUrl  String?
+  workSampleUrl        String?
+  workSamplePreviewUrl String?
+  linkedinUrl          String?
+  is_active            Boolean  @default(true)
+
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User             @relation(fields: [userId], references: [id])
+  applications JobApplication[]
+}
+
+// ---------------- Employer (Company / Recruiter) ----------------
+model Employer {
+  id                         String   @id @default(uuid())
+  userId                     String   @unique
+  companyName                String
+  website                    String?
+  industry                   String?
+  functionArea               String?
+  aboutOrganzation           String?
+  organizationLogoUrl        String?
+  organizationLogoPreviewUrl String?
+  linkedinUrl                String?
+  companySize                String?
+  establishedYear            Int?
+  annualRevenue              String?
+  GSTDetails                 Json?
+  TCPolicy                   Boolean? @default(false)
+  is_active                  Boolean  @default(true)
+
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User  @relation(fields: [userId], references: [id])
+  jobs Job[]
+}
+
+// ---------------- Admin ----------------
+model Admin {
+  id     String @id @default(uuid())
+  userId String @unique
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Address {
+  id             String  @id @default(uuid())
+  city           String
+  state          String
+  country        String
+  pincode        String
+  latitude       Float?
+  longitude      Float?
+  building       String?
+  floor          String?
+  apartment      String?
+  landmark       String?
+  additionalInfo String?
+  area           String?
+  is_active      Boolean @default(true)
+
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User? @relation("address")
+}
+
+// ---------------- Job Posting ----------------
+model Job {
+  id           String   @id @default(uuid())
+  title        String
+  description  String
+  requirements String[]
+  location     String
+  salary       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  employerId   String
+  employer     Employer         @relation(fields: [employerId], references: [id])
+  applications JobApplication[]
+}
+
+// ---------------- Job Applications ----------------
+model JobApplication {
+  id        String            @id @default(uuid())
+  status    ApplicationStatus @default(PENDING)
+  appliedAt DateTime          @default(now())
+
+  jobId      String
+  employeeId String
+
+  job      Job      @relation(fields: [jobId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
 }

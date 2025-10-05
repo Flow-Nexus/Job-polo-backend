@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { PrismaClient } from "./generated/prisma/index.js";
-import employeeAuth from "./routes/authRoutes/employeeRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 // import { createServer } from "http";
 // import { Server } from "socket.io";
 
@@ -28,7 +28,7 @@ prisma
   });
 
 //Routes
-app.use("/api/v1/employee/auth", employeeAuth);
+app.use("/api/v1/auth", authRoutes);
 
 // Local dev server
 if (process.env.NODE_ENV !== "production") {

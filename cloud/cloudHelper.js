@@ -1,5 +1,5 @@
 import path from "path";
-import { uploadToNextcloud } from "./cloudStorage.js";
+import { uploadToCloudinary } from "./cloudStorage.js";
 
 /**
  * Processes uploaded files and returns arrays of public URLs, preview URLs, and filenames.
@@ -16,9 +16,9 @@ export const processUploadedFiles = async (files, name, folderName) => {
       const file = files[i];
       const extension = path.extname(file.originalname).slice(1);
       const fileName = `${name}_${i + 1}.${extension}`;
-      const filePath = `MRSCPUBLICDATA/${folderName}/${fileName}`;
+      const filePath = `JOBPOLODATA/${folderName}/${fileName}`;
 
-      const { publicLink, previewLink } = await uploadToNextcloud(
+      const { publicLink, previewLink } = await uploadToCloudinary(
         filePath,
         file
       );

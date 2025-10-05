@@ -35,27 +35,33 @@ export const tokenDetails = {
 
 //for user role
 export const actionType = {
-  LOGIN: "login",
-  REGISTER: "register",
+  EMPLOYEE_LOGIN: "EMPLOYEE-LOGIN",
+  EMPLOYER_LOGIN: "EMPLOYER-LOGIN",
+  EMPLOYEE_REGISTER: "EMPLOYEE-REGISTER",
+  EMPLOYER_REGISTER: "EMPLOYER-REGISTER",
   SETPASSWORD: "set_password",
-  REGISTERANDLOGIN: "register_and_login",
   FORGOTPASSWORD: "forgot_password",
 };
 export const availableActionType = [
-  actionType.LOGIN,
-  actionType.REGISTER,
+  actionType.EMPLOYEE_LOGIN,
+  actionType.EMPLOYER_LOGIN,
+  actionType.EMPLOYEE_REGISTER,
+  actionType.EMPLOYER_REGISTER,
   actionType.SETPASSWORD,
-  actionType.REGISTERANDLOGIN,
   actionType.FORGOTPASSWORD,
 ];
 
 //for user role
 export const roleType = {
-  ADMIN: "ADMIN",
-  USER: "USER",
-  OPERATOR: "OPERATOR",
+  EMPLOYEE: "EMPLOYEE",
+  EMPLOYER: "EMPLOYER",
+  SUPERADMIN: "SUPERADMIN",
 };
-export const availableRole = [roleType.ADMIN, roleType.USER, roleType.OPERATOR];
+export const availableRole = [
+  roleType.EMPLOYEE,
+  roleType.EMPLOYER,
+  roleType.SUPERADMIN,
+];
 
 //for login GOOGLE
 export const AuthProvider = {

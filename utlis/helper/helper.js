@@ -1,15 +1,14 @@
-import nodemailer from "nodemailer";
-import twilio from "twilio";
 import dotenv from "dotenv";
+import nodemailer from "nodemailer";
 
 dotenv.config();
 
 // Nodemailer transporter
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  service: "smtp.gmail.com",
   auth: {
-    user: process.env.MRSC_COMPANY_EMAIL,
-    pass: process.env.MRSC_COMPANY_EMAIL_PASSWORD,
+    user: process.env.JOBPOLO_COMPANY_EMAIL,
+    pass: process.env.JOBPOLO_COMPANY_EMAIL_PASSWORD,
   },
 
   tls: {
@@ -17,27 +16,21 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Twilio client setup
-// const twilioClient = twilio(
-//   process.env.TWILIO_ACCOUNT_SID,
-//   process.env.TWILIO_AUTH_TOKEN
-// );
-
 // Send OTP Verification code for register
 export const sendOTPVerification = async ({ email, otp, expireOtp }) => {
   try {
     const mailOptions = {
-      from: process.env.MRSC_COMPANY_EMAIL,
+      from: process.env.JOBPOLO_COMPANY_EMAIL,
       to: email,
       subject: "Verify Your Email.",
       html: `
-        <p>Enter <b>${otp}</b> in the app to verify your email address and complete the process.</p>
+        <p>Enter <b>${otp}</b> to verify your email address and complete the process.</p>
         <p>This code <b>expires in ${expireOtp} minutes</b>.</p>
       `,
     };
     // Send email OTP
     await transporter.sendMail(mailOptions);
-    console.log(`OTP sent to email: ${email}`);
+    // console.log(`OTP sent to email: ${email}`);
     return {
       success: true,
       message: "OTP sent successfully!",
@@ -92,52 +85,3 @@ export const sendResetPasswordEmail = async ({
   }
 };
 
-//Order Confirmation Send to Operator
-export const sendOrderStatusToOperator = async ({ order, operator }) => {
-  try {
-    const operatorEmail = operator?.email;
-    if (!operatorEmail) {
-      console.warn(`Operator email not found for orderId: ${order.orderId}`);
-      return {
-        success: false,
-        message: "Operator email not found",
-      };
-    }
-
-    const mailOptions = {
-      from: process.env.MRSC_COMPANY_EMAIL,
-      to: operatorEmail,
-      subject: `New Order Confirmed - ${order.orderId}`,
-      html: `
-        <h2>Hello ${operator?.name || "Operator"},</h2>
-        <p>A new order (<strong>${
-          order.orderId
-        }</strong>) has been successfully confirmed and paid.</p>
-        <p><strong>Total Price:</strong> ₹${order.totalPrice}</p>
-        <p><strong>Delivery Address:</strong> 
-          ${order.deliveryAddress?.area || ""}, ${
-        order.deliveryAddress?.city || ""
-      }
-        </p>
-        <br/>
-        <p>Please prepare the order for dispatch.</p>
-      `,
-    };
-
-    // Send order status email
-    await transporter.sendMail(mailOptions);
-    console.log(`Order status email sent to operator: ${operatorEmail}`);
-
-    return {
-      success: true,
-      message: "Order status email sent successfully",
-    };
-  } catch (error) {
-    console.error(`Failed to send order status email: ${error.message}`);
-    return {
-      success: false,
-      message: "Failed to send order status email",
-      error: error.message,
-    };
-  }
-};

@@ -14,7 +14,7 @@ export const razorpayInstance = new Razorpay({
 });
 
 //for Google Auth login.
-export const googleClient = new OAuth2Client(process.env.MRSC_GOOGLE_CLIENT_ID);
+export const googleClient = new OAuth2Client(process.env.JOBPOLO_GOOGLE_CLIENT_ID);
 
 
 //success status message
