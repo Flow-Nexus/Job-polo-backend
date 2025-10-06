@@ -1,12 +1,12 @@
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import prismaDB from "../utlis/prisma.js";
 import { actionFailedResponse } from "../config/common.js";
-import { responseFlags } from "../config/config.js";
+import { responseFlags, roleType } from "../config/config.js";
+import prismaDB from "../utlis/prisma.js";
 
 dotenv.config();
 
-export const userJwtToken = async (req, res, next) => {
+export const employeeJwtToken = async (req, res, next) => {
   const token = req.headers["x-access-token"];
 
   try {
@@ -20,9 +20,9 @@ export const userJwtToken = async (req, res, next) => {
 
     // Decode and verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded._id;
+    const employeeId = decoded._id;
 
-    if (!userId) {
+    if (!employeeId) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.UNAUTHORIZED,
@@ -30,11 +30,10 @@ export const userJwtToken = async (req, res, next) => {
       });
     }
 
-    const user = await prismaDB.User.findUnique({
-      where: { id: userId },
+    const employee = await prismaDB.User.findUnique({
+      where: { id: employeeId },
     });
-
-    if (!user) {
+    if (!employee) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.NOT_FOUND,
@@ -43,8 +42,11 @@ export const userJwtToken = async (req, res, next) => {
     }
 
     // Validate allowed roles
-    const allowedRoles = ["ADMIN", "OPERATOR", "USER"];
-    if (!allowedRoles.includes(user.role)) {
+    const allowedRoles = [
+      roleType.EMPLOYEE,
+      roleType.SUPERADMIN,
+    ];
+    if (!allowedRoles.includes(employee.role)) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.UNAUTHORIZED,
@@ -52,23 +54,23 @@ export const userJwtToken = async (req, res, next) => {
       });
     }
 
-    if (!user.is_active) {
+    if (!employee.is_active) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.UNAUTHORIZED,
-        msg: "Unauthorized user. Please contact admin.",
+        msg: "Unauthorized employee. Please contact admin.",
       });
     }
 
-    // Attach user info to request
-    req.user_obj_id = user.id;
-    req.userDetails = `${user.name} - ${user.role}`;
-    console.log("objeid",req.user_obj_id)
-    console.log("objeiddeaiial",req.userDetails)
+    // Attach employee info to request
+    req.employee_obj_id = employee.id;
+    req.employeeDetails = `${employee.firstName} ${employee.lastName} - ${employee.role}`;
+    console.log("objeid", req.employee_obj_id);
+    console.log("objeiddeaiial", req.employeeDetails);
 
     return next();
   } catch (err) {
-    console.error("User Token Error:", err.message);
+    console.error("Employee Token Error:", err.message);
     return actionFailedResponse({
       res,
       errorCode: responseFlags.ACTION_FAILED,

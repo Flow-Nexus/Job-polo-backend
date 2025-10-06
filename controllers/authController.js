@@ -121,6 +121,7 @@ export const sendOTP = async (req, res) => {
  */
 export const employeeRegister = async (req, res) => {
   try {
+    const userId = req.employeeDetails || req.employee_obj_id;
     const {
       email,
       firstName,
@@ -211,28 +212,31 @@ export const employeeRegister = async (req, res) => {
 
     // ---------- REGISTER NEW USER ----------
     if (!user) {
-      // 1 Create Address
-      const address = await prismaDB.Address.create({
-        data: {
-          city,
-          state,
-          country,
-          pincode,
-        },
-      });
-
       // 2️ Create User
       user = await prismaDB.User.create({
         data: {
           email,
           firstName,
           lastName,
-          countryCode,
-          mobileNumber,
+          countryCode: countryCode || null,
+          mobileNumber: mobileNumber || null,
           gender,
           role: roleType.EMPLOYEE,
           authProvider: AuthProvider.OTP,
-          addressId: address.id,
+          // addressId: address.id,
+          createdBy: userId || "Self-Employee",
+        },
+      });
+
+      // 2 Create Address
+      const address = await prismaDB.Address.create({
+        data: {
+          city,
+          state,
+          country,
+          pincode,
+          user: { connect: { id: user?.id } },
+          createdBy: userId || "Self-Employee",
         },
       });
 
@@ -260,7 +264,8 @@ export const employeeRegister = async (req, res) => {
           expectedCTC: expectedCTC ? parseFloat(expectedCTC) : null,
           resumeUrls,
           resumePreviewUrls,
-          TCPolicy,
+          TCPolicy: TCPolicy === "true" || TCPolicy === true,
+          createdBy: userId || "Self-Employee",
         },
       });
 
@@ -273,6 +278,7 @@ export const employeeRegister = async (req, res) => {
           user: {
             connect: { id: user.id },
           },
+          createdBy: userId || "Self-Employee",
         },
       });
 
@@ -301,6 +307,7 @@ export const employeeRegister = async (req, res) => {
             userId: user.id,
             password: hashedPassword,
             previousPassword: [hashedPassword],
+            createdBy: userId || "Self-Employee",
           },
         });
       }
@@ -351,6 +358,7 @@ export const employeeRegister = async (req, res) => {
  */
 export const employerRegister = async (req, res) => {
   try {
+    const userId = req.employerDetails || req.employer_obj_id;
     const {
       email,
       firstName,
@@ -369,11 +377,7 @@ export const employerRegister = async (req, res) => {
       TCPolicy,
       otp,
     } = req.body;
-
     const action = actionType.EMPLOYER_REGISTER;
-
-    console.log(firstName, lastName, email, action, otp, email, action);
-
 
     // --------- 1. OTP-BASED REGISTRATION FLOW ----------
     if (!email || !firstName || !lastName || !otp || !companyName) {
@@ -408,8 +412,7 @@ export const employerRegister = async (req, res) => {
       where: { email, action },
       orderBy: { createdAt: "desc" },
     });
-    console.log("dfgthj",firstName, lastName, email, action, otp, email, action);
-    console.log("recentOtp", recentOtp);
+    // console.log("recentOtp", recentOtp);
     if (!recentOtp) {
       return actionFailedResponse({
         res,
@@ -453,41 +456,46 @@ export const employerRegister = async (req, res) => {
           mobileNumber: mobileNumber || null,
           role: roleType.EMPLOYER,
           authProvider: AuthProvider.OTP,
+          createdBy: userId || "Self-Employer",
         },
       });
 
-      // 1 Create Address
-      const address = await prismaDB.Address.create({
+      // 2 Create Address
+      await prismaDB.Address.create({
         data: {
           city,
           state,
           country,
           pincode,
+          user: { connect: { id: user.id } },
+          createdBy: userId || "Self-Employer",
         },
       });
 
-      // 2 Create Employer
+      // 3 Create Employer
       await prismaDB.Employer.create({
         data: {
           userId: user.id,
           companyName,
           industry,
           functionArea,
-          TCPolicy,
+          TCPolicy: TCPolicy === "true" || TCPolicy === true,
+          createdBy: userId || "Self-Employer",
         },
       });
 
-      // 3 Mark user verified
+      // 4 Mark user verified
       await prismaDB.UserOTPVerification.create({
         data: {
           otp,
           emailVerified: true,
           expiresAt: new Date(),
           user: { connect: { id: user.id } },
+          createdBy: userId || "Self-Employer",
         },
       });
 
-      // 4 Hash password if provided
+      // 5 Hash password if provided
       if (password) {
         if (password.length < 6) {
           return actionFailedResponse({
@@ -510,6 +518,7 @@ export const employerRegister = async (req, res) => {
             userId: user.id,
             password: hashedPassword,
             previousPassword: [hashedPassword],
+            createdBy: userId || "Self-Employer",
           },
         });
       }
@@ -528,8 +537,8 @@ export const employerRegister = async (req, res) => {
     const fullUserData = await prismaDB.User.findUnique({
       where: { id: user.id },
       include: {
-        Employer: true,
         address: true,
+        employer: true,
         UserOTPVerification: true,
       },
     });
@@ -550,10 +559,18 @@ export const employerRegister = async (req, res) => {
   }
 };
 
+/**
+ * @desc Login For all with email, Password and OTP
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @return {Object} JSON response with success or error message
+ * @route POST /api/v1/auth/employee/login
+ * @access Public
+ */
 export const login = async (req, res) => {
   try {
     const { email, password, otp, googleToken } = req.body;
-    // const action = actionType;
+    const action = actionType.LOGIN;
 
     // 1. GOOGLE LOGIN FLOW
     if (googleToken) {
@@ -717,7 +734,7 @@ export const login = async (req, res) => {
 
     // ---------- OTP VERIFICATION ----------
     const recentOtp = await prismaDB.OTP.findFirst({
-      where: { email },
+      where: { email, action },
       orderBy: { createdAt: "desc" },
     });
     if (!recentOtp) {
@@ -747,6 +764,9 @@ export const login = async (req, res) => {
         msg: "Invalid OTP",
       });
     }
+
+    // Delete used OTP
+    await prismaDB.oTP.delete({ where: { id: recentOtp.id } });
 
     // ---------- ACCOUNT ACTIVE CHECK ----------
     if (!user.is_active) {
@@ -786,194 +806,405 @@ export const login = async (req, res) => {
   }
 };
 
-// //For password verified for reset password
-// // ---------- PASSWORD HANDLING ----------
-//     if (password && confirmPassword) {
-//       if (password !== confirmPassword) {
-//         return actionFailedResponse({
-//           res,
-//           errorCode: responseFlags.BAD_REQUEST,
-//           msg: "Password and Confirm Password do not match",
-//         });
-//       }
+/**
+ * @desc Reset Password using OTP
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @return {Object} JSON response with success or error message
+ * @route PUT /api/v1/auth/employee/reset-password
+ * @access Public
+ */
+export const resetPassword = async (req, res) => {
+  try {
+    const userby =
+      req.employeeDetails ||
+      req.employee_obj_id ||
+      req.employerDetails ||
+      req.employer_obj_id ||
+      req.superAdminDetails ||
+      req.superAdmin_obj_id;
+    const { userId, password, confirmPassword, otp } = req.body;
+    const action = actionType.SETPASSWORD;
 
-//       const hashedPassword = await bcrypt.hash(password, 10);
+    if (!userId || !password || !confirmPassword || !otp) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.PARAMETER_MISSING,
+        msg: responseMessages.PARAMETER_MISSING,
+      });
+    }
 
-//       const existingPasswordRecord = await prismaDB.employeePassword.findUnique({
-//         where: { userId: user.id },
-//       });
+    if (password !== confirmPassword) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "Password and Confirm Password do not match",
+      });
+    }
 
-//       if (existingPasswordRecord) {
-//         // Check if same as last 2 passwords
-//         const sameAsOld = await Promise.all(
-//           existingPasswordRecord.previousHashes.map((oldHash) =>
-//             bcrypt.compare(password, oldHash)
-//           )
-//         );
-//         const sameAsCurrent = await bcrypt.compare(password, existingPasswordRecord.passwordHash);
+    if (password.length < 6) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "Password must be at least 6 characters long",
+      });
+    }
 
-//         if (sameAsOld.includes(true) || sameAsCurrent) {
-//           return actionFailedResponse({
-//             res,
-//             errorCode: responseFlags.BAD_REQUEST,
-//             msg: "New password must be different from your last two passwords",
-//           });
-//         }
+    const user = await prismaDB.User.findUnique({
+      where: { id: userId },
+    });
 
-//  const existingPassword = await prismaDB.employeePassword.findUnique({
-//           where: { userId: user.id },
-//         });
-//         // Update password and store previous ones
-//         const newPrevious = [
-//           existingPasswordRecord.passwordHash,
-//           ...(existingPasswordRecord.previousHashes || []),
-//         ].slice(0, 2);
+    if (!user) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.NOT_FOUND,
+        msg: "User not found.",
+      });
+    }
 
-//         await prismaDB.employeePassword.update({
-//           where: { userId: user.id },
-//           data: {
-//             passwordHash: hashedPassword,
-//             previousHashes: newPrevious,
-//           },
-//         });
-//       } else {
-//         // Create new password entry
-//         await prismaDB.employeePassword.create({
-//           data: {
-//             userId: user.id,
-//             passwordHash: hashedPassword,
-//           },
-//         });
-//       }
-//     } else {
-//       return actionFailedResponse({
-//         res,
-//         errorCode: responseFlags.PARAMETER_MISSING,
-//         msg: "Password and Confirm Password are required",
-//       });
-//     }
-// const existingPassword = await prismaDB.employeePassword.findUnique({
-//           where: { userId: user.id },
-//         });
+    const email = user.email;
 
-//         const salt = await bcrypt.genSalt(10);
-//         const hashedPassword = await bcrypt.hash(password, salt);
+    // ---------- OTP VERIFICATION ----------
+    const recentOtp = await prismaDB.OTP.findFirst({
+      where: { email, action },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!recentOtp) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.NOT_FOUND,
+        msg: "OTP not found or expired",
+      });
+    }
 
-//         // Check last 2 passwords
-//         // if (existingPassword) {
-//         //   const recentPasswords = existingPassword.previousPassword || [];
+    // Check OTP expiry
+    if (recentOtp.expiresAt < new Date()) {
+      await prismaDB.oTP.delete({ where: { id: recentOtp.id } });
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "OTP expired. Please request a new one.",
+      });
+    }
 
-//         //   for (const previousHash of recentPasswords) {
-//         //     const isSame = await bcrypt.compare(password, previousHash);
-//         //     if (isSame) {
-//         //       return actionFailedResponse({
-//         //         res,
-//         //         errorCode: responseFlags.BAD_REQUEST,
-//         //         msg: "New password must be different from your last 2 passwords.",
-//         //       });
-//         //     }
-//         //   }
+    // Check OTP match
+    if (recentOtp.otp !== otp) {
+      await prismaDB.OTP.delete({ where: { id: recentOtp.id } });
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "Invalid OTP",
+      });
+    }
 
-//         //   const updatedPasswords = [hashedPassword, ...recentPasswords].slice(
-//         //     0,
-//         //     2
-//         //   );
+    // Delete used OTP
+    await prismaDB.OTP.delete({ where: { id: recentOtp.id } });
 
-//         //   await prismaDB.ResetPasswordToken.update({
-//         //     where: { userId: user.id },
-//         //     data: {
-//         //       password: hashedPassword,
-//         //       previousPassword: updatedPasswords,
-//         //     },
-//         //   });
-//         // } else {
-//         await prismaDB.ResetPasswordToken.create({
-//           data: {
-//             userId: user.id,
-//             password: hashedPassword,
-//             previousPassword: [hashedPassword],
-//           },
-//         });
-//         // }
-//       }
-//     }
+    // Fetch existing password record
+    const existingPassword = await prismaDB.ResetPasswordToken.findUnique({
+      where: { userId },
+    });
+    if (!existingPassword) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.NOT_FOUND,
+        msg: "Password record not found. Cannot reset password.",
+      });
+    }
 
-//for login token
-// Generate JWT token
-// const tokenPayload = {
-//   _id: user.id,
-//   email: user.email,
-//   role: user.role,
-// };
+    // Check against last 2 passwords + current
+    const previousPasswords = existingPassword.previousPassword || [];
+    const passwordMatches = await Promise.all(
+      [...previousPasswords, existingPassword.password].map((hash) =>
+        bcrypt.compare(password, hash)
+      )
+    );
 
-// const token = generateAccessToken(tokenPayload, "30d");
+    if (passwordMatches.includes(true)) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "New password must be different from your last two passwords",
+      });
+    }
 
-///dfghjk
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-// --------- 1. GOOGLE SIGN-IN FLOW ----------
-// if (googleToken) {
-//   try {
-//     const ticket = await googleClient.verifyIdToken({
-//       idToken: googleToken,
-//       audience: [
-//         process.env.JOBPOLO_GOOGLE_ANDROID_CLIENT_ID,
-//         process.env.JOBPOLO_GOOGLE_WEB_CLIENT_ID,
-//       ],
-//     });
+    // Update password and maintain last 2 previous passwords
+    const newPrevious = [existingPassword.password, ...previousPasswords].slice(
+      0,
+      2
+    );
 
-//     const payload = ticket.getPayload();
-//     const googleEmail = payload?.email;
-//     const googleName = payload?.name + " ";
+    await prismaDB.ResetPasswordToken.update({
+      where: { userId },
+      data: {
+        password: hashedPassword,
+        previousPassword: newPrevious,
+        updatedBy: userby,
+      },
+    });
 
-//     if (!googleEmail || !googleName) {
-//       return actionFailedResponse({
-//         res,
-//         errorCode: responseFlags.BAD_REQUEST,
-//         msg: "Invalid Google token",
-//       });
-//     }
+    const msg = "Password reset successfully.";
+    return actionCompleteResponse({
+      res,
+      msg,
+      data: {},
+    });
+  } catch (error) {
+    console.error("Error in resetPassword:", error);
+    return actionFailedResponse({
+      res,
+      errorCode: responseFlags.ACTION_FAILED,
+      msg: error.message || "Error resetting password",
+    });
+  }
+};
 
-//     // Check if user exists
-//     let user = await prismaDB.user.findUnique({
-//       where: { email: googleEmail },
-//     });
+/**
+ * @desc Forgot Password using email and OTP
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @return {Object} JSON response with success or error message
+ * @route POST /api/v1/auth/employee/forgot-password
+ * @access Public
+ */
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email, password, confirmPassword, otp } = req.body;
+    const action = actionType.FORGOTPASSWORD;
 
-//     // Create new user if not found
-//     if (!user) {
-//       const [first, last] = googleName.split(" ");
-//       user = await prismaDB.user.create({
-//         data: {
-//           email: googleEmail,
-//           firstName: first || "",
-//           lastName: last || "",
-//           role: roleType.EMPLOYEE,
-//           authProvider: AuthProvider.GOOGLE,
-//         },
-//       });
-//     }
+    // ---------- PARAMETER VALIDATION ----------
+    if (!email || !password || !confirmPassword || !otp) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.PARAMETER_MISSING,
+        msg: responseMessages.PARAMETER_MISSING,
+      });
+    }
 
-//     // Check if user is active
-//     if (!user.is_active) {
-//       return actionFailedResponse({
-//         res,
-//         errorCode: responseFlags.UNAUTHORIZED,
-//         msg: "Account is inactive. Please contact admin.",
-//       });
-//     }
-//     // const { password, ...userWithoutPassword } = user;
+    if (password !== confirmPassword) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "Password and Confirm Password do not match",
+      });
+    }
 
-//     const msg = "Register in with Google successfully.";
-//     return actionCompleteResponse({
-//       res,
-//       msg,
-//       data: { user },
-//     });
-//   } catch (err) {
-//     console.error("Google auth failed:", err);
-//     return actionFailedResponse({
-//       res,
-//       errorCode: responseFlags.BAD_REQUEST,
-//       msg: err.message || "Google authentication failed",
-//     });
-//   }
-// }
+    if (password.length < 6) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "Password must be at least 6 characters long",
+      });
+    }
+
+    // ---------- FETCH USER ----------
+    const user = await prismaDB.User.findUnique({ where: { email } });
+    if (!user) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.NOT_FOUND,
+        msg: "User not found",
+      });
+    }
+
+    const userId = user.id;
+
+    // ---------- OTP VERIFICATION ----------
+    const recentOtp = await prismaDB.OTP.findFirst({
+      where: { email, action },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!recentOtp) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.NOT_FOUND,
+        msg: "OTP not found or expired",
+      });
+    }
+
+    if (recentOtp.expiresAt < new Date()) {
+      await prismaDB.OTP.delete({ where: { id: recentOtp.id } });
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "OTP expired. Please request a new one.",
+      });
+    }
+
+    if (recentOtp.otp !== otp) {
+      await prismaDB.OTP.delete({ where: { id: recentOtp.id } });
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "Invalid OTP",
+      });
+    }
+
+    // Delete used OTP
+    await prismaDB.OTP.delete({ where: { id: recentOtp.id } });
+
+    // ---------- HASH NEW PASSWORD ----------
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Fetch existing password record if exists
+    const existingPassword = await prismaDB.ResetPasswordToken.findUnique({
+      where: { userId },
+    });
+
+    let previousPasswords = [];
+    if (existingPassword) {
+      previousPasswords = [
+        existingPassword.password,
+        ...(existingPassword.previousPassword || []),
+      ].slice(0, 2);
+
+      // Optional: check new password against last 2 passwords
+      const passwordMatches = await Promise.all(
+        [...previousPasswords].map((hash) => bcrypt.compare(password, hash))
+      );
+      if (passwordMatches.includes(true)) {
+        return actionFailedResponse({
+          res,
+          errorCode: responseFlags.BAD_REQUEST,
+          msg: "New password must be different from your last two passwords",
+        });
+      }
+    }
+
+    // ---------- CREATE NEW PASSWORD RECORD ----------
+    await prismaDB.ResetPasswordToken.upsert({
+      where: { userId },
+      update: {
+        password: hashedPassword,
+        previousPassword: previousPasswords,
+        updatedBy: userby,
+      },
+      create: {
+        userId,
+        password: hashedPassword,
+        previousPassword: previousPasswords,
+        createdBy: userby,
+      },
+    });
+
+    const msg = "Password Forgot successfully.";
+    return actionCompleteResponse({
+      res,
+      msg,
+      data: {},
+    });
+  } catch (error) {
+    console.error("Error in forgotPassword:", error);
+    return actionFailedResponse({
+      res,
+      errorCode: responseFlags.ACTION_FAILED,
+      msg: error.message || "Error resetting password",
+    });
+  }
+};
+
+/**
+ * @desc Get User using Many Filters
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @return {Object} JSON response with success or error message
+ * @route GET /api/v1/auth/employee/get-users-with-filters
+ * @access Public
+ */
+export const getAllUsers = async (req, res) => {
+  try {
+    const {
+      userId,
+      country,
+      mobileNumber,
+      role,
+      is_active,
+      experience,
+      industry,
+      functionArea,
+      search, // optional search term
+      page = 1,
+      limit = 20,
+    } = req.query;
+
+    // Convert pagination params
+    const skip = (Number(page) - 1) * Number(limit);
+    const take = Number(limit);
+
+    // Build Prisma filter dynamically
+    const filters = {};
+
+    if (userId) filters.id = userId;
+    if (mobileNumber) filters.mobileNumber = mobileNumber;
+    if (role) filters.role = role;
+    if (is_active !== undefined)
+      filters.is_active = is_active === "true" || is_active === true;
+    if (country)
+      filters.address = {
+        country: { contains: country, mode: "insensitive" },
+      };
+
+    // Optional search filter
+    if (search) {
+      filters.OR = [
+        { email: { contains: search, mode: "insensitive" } },
+        { firstName: { contains: search, mode: "insensitive" } },
+        { lastName: { contains: search, mode: "insensitive" } },
+        { mobileNumber: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    // Fetch users including related data
+    const users = await prismaDB.User.findMany({
+      where: filters,
+      include: {
+        address: true,
+        employee: true,
+        employer: true,
+      },
+      skip,
+      take,
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Additional filters based on Employee relation (experience, industry, etc.)
+    let filteredUsers = users;
+    if (experience || industry || functionArea) {
+      filteredUsers = users.filter((u) => {
+        const emp = u.employee;
+        return (
+          (!experience || emp?.experience == Number(experience)) &&
+          (!industry ||
+            emp?.industry?.toLowerCase() === industry?.toLowerCase()) &&
+          (!functionArea ||
+            emp?.functionArea?.toLowerCase() ===
+              functionArea?.toLowerCase())
+        );
+      });
+    }
+
+    const totalCount = await prismaDB.User.count({ where: filters });
+
+    return actionCompleteResponse({
+      res,
+      msg: "Users fetched successfully",
+      data: {
+        page: Number(page),
+        limit: Number(limit),
+        totalCount,
+        users: filteredUsers,
+      },
+    });
+  } catch (error) {
+    console.error("Error in getAllUsers:", error);
+    return actionFailedResponse({
+      res,
+      errorCode: responseFlags.ACTION_FAILED,
+      msg: error.message || "Error fetching users.",
+    });
+  }
+};

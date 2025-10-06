@@ -18,6 +18,7 @@ datasource db {
 enum RoleType {
   EMPLOYEE
   EMPLOYER
+  SUPERADMIN
   ADMIN
 }
 
@@ -66,13 +67,14 @@ model User {
   resetPasswordTokens ResetPasswordToken[]
   UserOTPVerification UserOTPVerification?
 
-  // Address (optional - uncomment if you add UserAddress table)
+  // Address 
   address Address? @relation("address", fields: [addressId], references: [id])
 
   // Job platform relations
-  employee Employee?
-  employer Employer?
-  admin    Admin?
+  employee   Employee?
+  employer   Employer?
+  superAdmin SuperAdmin?
+  admin      Admin?
 }
 
 // ---------------- OTP & Verification ----------------
@@ -96,6 +98,8 @@ model UserOTPVerification {
   emailVerified  Boolean @default(false)
   mobileVerified Boolean @default(false)
 
+  createdBy String?
+  updatedBy String?
   createdAt DateTime @default(now())
   expiresAt DateTime
 
@@ -111,6 +115,8 @@ model ResetPasswordToken {
   password         String
   previousPassword String[] @default([]) // Store 2 previous passwords
 
+  createdBy String?
+  updatedBy String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -128,7 +134,6 @@ model Employee {
   functionArea         String?
   currentCTC           Float?
   expectedCTC          Float?
-  TCPolicy             Boolean? @default(false)
   resumeUrls           String[] @default([])
   resumePreviewUrls    String[] @default([])
   portfolioUrl         String?
@@ -136,6 +141,7 @@ model Employee {
   workSampleUrl        String?
   workSamplePreviewUrl String?
   linkedinUrl          String?
+  TCPolicy             Boolean? @default(false)
   is_active            Boolean  @default(true)
 
   createdBy String?
@@ -173,6 +179,31 @@ model Employer {
 
   user User  @relation(fields: [userId], references: [id])
   jobs Job[]
+}
+
+// ---------------- Super Admin ----------------
+model SuperAdmin {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  industry             String?
+  functionArea         String?
+  portfolioUrl         String?
+  portfolioPreviewUrl  String?
+  workSampleUrl        String?
+  workSamplePreviewUrl String?
+  linkedinUrl          String?
+  aboutOrganzation     String?
+  establishedYear      Int?
+  GSTDetails           Json?
+  TCPolicy             Boolean? @default(false)
+  is_active            Boolean  @default(true)
+
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
 }
 
 // ---------------- Admin ----------------

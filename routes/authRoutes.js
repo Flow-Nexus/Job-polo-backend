@@ -2,14 +2,23 @@ import express from "express";
 import {
   employeeRegister,
   employerRegister,
+  forgotPassword,
   login,
+  resetPassword,
   sendOTP,
 } from "../controllers/authController.js";
 import validate from "../middleware/validate.js";
-import { userJwtToken } from "../middleware/userJwt.js";
-import { registerAndLoginValidator, sendOTPValidator } from "../validator/authValidator.js";
+import { employeeJwtToken } from "../middleware/employeeJwt.js";
+import { employerJwtToken } from "../middleware/employerJwt.js";
+import {
+  employeeRegisterValidator,
+  employerRegisterValidator,
+  forgotPasswordValidator,
+  loginValidator,
+  resetPasswordValidator,
+  sendOTPValidator,
+} from "../validator/authValidator.js";
 import { upload } from "../cloud/cloudStorage.js";
-
 
 const authRoutes = express.Router();
 
@@ -21,23 +30,38 @@ authRoutes.post(
 );
 authRoutes.post(
   "/employee/login",
-  // validate({ body: registerAndLoginValidator }),
+  validate({ body: loginValidator }),
   login
+);
+authRoutes.put(
+  "/employee/reset-password",
+  validate({ body: resetPasswordValidator }),
+  employeeJwtToken,
+  resetPassword
+);
+authRoutes.post(
+  "/employee/forgot-password",
+  validate({ body: forgotPasswordValidator }),
+  forgotPassword
 );
 
 //EMPLOYEE ROUTES
 authRoutes.post(
   "/employee/register",
   upload.array("files", 1),
-  // validate({ body: registerAndLoginValidator }),
+  validate({ body: employeeRegisterValidator }),
   employeeRegister
 );
 
 // EMPLOYER ROUTES
 authRoutes.post(
   "/employer/register",
-  // validate({ body: registerAndLoginValidator }),
+  upload.none(),
+  validate({ body: employerRegisterValidator }),
+  // employerJwtToken,
   employerRegister
 );
+
+// SUPERADMIN ROUTES
 
 export default authRoutes;
