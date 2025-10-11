@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { PrismaClient } from "./generated/prisma/index.js";
 import authRoutes from "./routes/authRoutes.js";
+import jobRoutes from "./routes/jobRoutes.js";
 // import { createServer } from "http";
 // import { Server } from "socket.io";
 
@@ -27,8 +28,18 @@ prisma
     console.error("Failed to connect to the MySQL database:", e);
   });
 
+//test api
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Job Polo Server is running successfully 🚀",
+    time: new Date().toISOString(),
+  });
+});
+
 //Routes
 app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/job", jobRoutes);
 
 // Local dev server
 if (process.env.NODE_ENV !== "production") {

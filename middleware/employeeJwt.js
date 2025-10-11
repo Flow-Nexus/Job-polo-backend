@@ -20,7 +20,8 @@ export const employeeJwtToken = async (req, res, next) => {
 
     // Decode and verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const employeeId = decoded._id;
+    const employeeId = decoded._id || decoded.email;
+    // console.log("Decoded Token:", decoded);
 
     if (!employeeId) {
       return actionFailedResponse({
@@ -32,7 +33,9 @@ export const employeeJwtToken = async (req, res, next) => {
 
     const employee = await prismaDB.User.findUnique({
       where: { id: employeeId },
+      include: { employee: true },
     });
+
     if (!employee) {
       return actionFailedResponse({
         res,
@@ -42,10 +45,7 @@ export const employeeJwtToken = async (req, res, next) => {
     }
 
     // Validate allowed roles
-    const allowedRoles = [
-      roleType.EMPLOYEE,
-      roleType.SUPERADMIN,
-    ];
+    const allowedRoles = [roleType.EMPLOYEE, roleType.SUPER_ADMIN];
     if (!allowedRoles.includes(employee.role)) {
       return actionFailedResponse({
         res,
@@ -65,8 +65,9 @@ export const employeeJwtToken = async (req, res, next) => {
     // Attach employee info to request
     req.employee_obj_id = employee.id;
     req.employeeDetails = `${employee.firstName} ${employee.lastName} - ${employee.role}`;
-    console.log("objeid", req.employee_obj_id);
-    console.log("objeiddeaiial", req.employeeDetails);
+
+    console.log("employee_obj_id", req.employee_obj_id);
+    console.log("employeeDetails", req.employeeDetails);
 
     return next();
   } catch (err) {

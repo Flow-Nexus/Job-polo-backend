@@ -3,9 +3,11 @@ import {
   employeeRegister,
   employerRegister,
   forgotPassword,
+  getUsersWithFilters,
   login,
   resetPassword,
   sendOTP,
+  superAdminRegister,
 } from "../controllers/authController.js";
 import validate from "../middleware/validate.js";
 import { employeeJwtToken } from "../middleware/employeeJwt.js";
@@ -14,11 +16,14 @@ import {
   employeeRegisterValidator,
   employerRegisterValidator,
   forgotPasswordValidator,
+  getUsersWithValidator,
   loginValidator,
   resetPasswordValidator,
   sendOTPValidator,
+  superAdminRegisterValidator,
 } from "../validator/authValidator.js";
-import { upload } from "../cloud/cloudStorage.js";
+import { upload } from "../cloud/cloudinaryCloudStorage.js";
+import { superAdminJwtToken } from "../middleware/superAdminJwt.js";
 
 const authRoutes = express.Router();
 
@@ -28,12 +33,8 @@ authRoutes.post(
   validate({ query: sendOTPValidator }),
   sendOTP
 );
+authRoutes.post("/employee/login", validate({ body: loginValidator }), login);
 authRoutes.post(
-  "/employee/login",
-  validate({ body: loginValidator }),
-  login
-);
-authRoutes.put(
   "/employee/reset-password",
   validate({ body: resetPasswordValidator }),
   employeeJwtToken,
@@ -48,9 +49,23 @@ authRoutes.post(
 //EMPLOYEE ROUTES
 authRoutes.post(
   "/employee/register",
-  upload.array("files", 1),
+  upload.fields([
+    { name: "resumeFiles", maxCount: 2 },
+    { name: "workSampleFiles", maxCount: 3 },
+  ]),
+  (req, res, next) => {
+    console.log("Multer received files:", Object.keys(req.files || {}));
+    next();
+  },
   validate({ body: employeeRegisterValidator }),
   employeeRegister
+);
+
+authRoutes.get(
+  "/employee/get-users-with",
+  validate({ body: getUsersWithValidator }),
+  employeeJwtToken,
+  getUsersWithFilters
 );
 
 // EMPLOYER ROUTES
@@ -63,5 +78,13 @@ authRoutes.post(
 );
 
 // SUPERADMIN ROUTES
+authRoutes.post(
+  "/super-admin/register",
+  upload.fields([{ name: "portfolioFiles", maxCount: 2 }]),
+  // upload.array("portfolioFiles", 1),
+  validate({ body: superAdminRegisterValidator }),
+  superAdminJwtToken,
+  superAdminRegister
+);
 
 export default authRoutes;

@@ -12,6 +12,7 @@ import {
   responseFlags,
   responseMessages,
   roleType,
+  uploadFolderName,
 } from "../config/config.js";
 import { sendOTPVerification } from "../utlis/helper/helper.js";
 import bcrypt from "bcrypt";
@@ -121,7 +122,8 @@ export const sendOTP = async (req, res) => {
  */
 export const employeeRegister = async (req, res) => {
   try {
-    const userId = req.employeeDetails || req.employee_obj_id;
+    const userId =
+      req.employeeDetails || req.employee_obj_id || "Self-Employee";
     const {
       email,
       firstName,
@@ -143,7 +145,8 @@ export const employeeRegister = async (req, res) => {
       otp,
     } = req.body;
     const action = actionType.EMPLOYEE_REGISTER;
-    const files = req.files || [];
+    const resumeFiles = req.files?.resumeFiles || [];
+    const workSampleFiles = req.files?.workSampleFiles || [];
 
     // --------- 1. OTP-BASED REGISTRATION FLOW ----------
     if (!email || !firstName || !lastName || !otp) {
@@ -220,38 +223,51 @@ export const employeeRegister = async (req, res) => {
           lastName,
           countryCode: countryCode || null,
           mobileNumber: mobileNumber || null,
-          gender,
           role: roleType.EMPLOYEE,
           authProvider: AuthProvider.OTP,
           // addressId: address.id,
-          createdBy: userId || "Self-Employee",
+          createdBy: userId,
         },
       });
 
       // 2 Create Address
-      const address = await prismaDB.Address.create({
+      await prismaDB.Address.create({
         data: {
           city,
           state,
           country,
           pincode,
           user: { connect: { id: user?.id } },
-          createdBy: userId || "Self-Employee",
+          createdBy: userId,
         },
       });
 
       // NEW PART: Handle file uploads
       let resumeUrls = [];
       let resumePreviewUrls = [];
-
-      if (files && files.length > 0) {
-        const uploadResults = await processUploadedFiles(
-          files,
-          `${firstName}_${lastName}`,
-          "employee-resumes"
+      let workSampleUrls = [];
+      let workSamplePreviewUrls = [];
+      console.log("resumeFiles", resumeFiles);
+      console.log("workSampleFiles", workSampleFiles);
+      console.log("email", email);
+      if (resumeFiles.length > 0) {
+        const resumeResults = await processUploadedFiles(
+          resumeFiles,
+          uploadFolderName.EMPLOYEE_RESUME,
+          email
         );
-        resumeUrls = uploadResults.imageUrlsArray;
-        resumePreviewUrls = uploadResults.previewUrlsArray;
+        resumeUrls = resumeResults.imageUrlsArray;
+        resumePreviewUrls = resumeResults.previewUrlsArray;
+      }
+
+      if (workSampleFiles.length > 0) {
+        const workSampleResults = await processUploadedFiles(
+          workSampleFiles,
+          uploadFolderName.EMPLOYEE_WORK_SAMPLE,
+          email
+        );
+        workSampleUrls = workSampleResults.imageUrlsArray;
+        workSamplePreviewUrls = workSampleResults.previewUrlsArray;
       }
 
       // 3 Create Employee
@@ -263,9 +279,12 @@ export const employeeRegister = async (req, res) => {
           currentCTC: currentCTC ? parseFloat(currentCTC) : null,
           expectedCTC: expectedCTC ? parseFloat(expectedCTC) : null,
           resumeUrls,
+          gender,
           resumePreviewUrls,
+          workSampleUrls,
+          workSamplePreviewUrls,
           TCPolicy: TCPolicy === "true" || TCPolicy === true,
-          createdBy: userId || "Self-Employee",
+          createdBy: userId,
         },
       });
 
@@ -278,7 +297,7 @@ export const employeeRegister = async (req, res) => {
           user: {
             connect: { id: user.id },
           },
-          createdBy: userId || "Self-Employee",
+          createdBy: userId,
         },
       });
 
@@ -307,7 +326,7 @@ export const employeeRegister = async (req, res) => {
             userId: user.id,
             password: hashedPassword,
             previousPassword: [hashedPassword],
-            createdBy: userId || "Self-Employee",
+            createdBy: userId,
           },
         });
       }
@@ -358,7 +377,8 @@ export const employeeRegister = async (req, res) => {
  */
 export const employerRegister = async (req, res) => {
   try {
-    const userId = req.employerDetails || req.employer_obj_id;
+    const userId =
+      req.employerDetails || req.employer_obj_id || "Self-Employer";
     const {
       email,
       firstName,
@@ -456,7 +476,7 @@ export const employerRegister = async (req, res) => {
           mobileNumber: mobileNumber || null,
           role: roleType.EMPLOYER,
           authProvider: AuthProvider.OTP,
-          createdBy: userId || "Self-Employer",
+          createdBy: userId,
         },
       });
 
@@ -468,7 +488,7 @@ export const employerRegister = async (req, res) => {
           country,
           pincode,
           user: { connect: { id: user.id } },
-          createdBy: userId || "Self-Employer",
+          createdBy: userId,
         },
       });
 
@@ -480,7 +500,7 @@ export const employerRegister = async (req, res) => {
           industry,
           functionArea,
           TCPolicy: TCPolicy === "true" || TCPolicy === true,
-          createdBy: userId || "Self-Employer",
+          createdBy: userId,
         },
       });
 
@@ -491,7 +511,7 @@ export const employerRegister = async (req, res) => {
           emailVerified: true,
           expiresAt: new Date(),
           user: { connect: { id: user.id } },
-          createdBy: userId || "Self-Employer",
+          createdBy: userId,
         },
       });
 
@@ -518,7 +538,7 @@ export const employerRegister = async (req, res) => {
             userId: user.id,
             password: hashedPassword,
             previousPassword: [hashedPassword],
-            createdBy: userId || "Self-Employer",
+            createdBy: userId,
           },
         });
       }
@@ -1108,6 +1128,238 @@ export const forgotPassword = async (req, res) => {
 };
 
 /**
+ * @desc Create SuperAdmin using email and OTP
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @return {Object} JSON response with success or error message
+ * @route POST /api/v1/auth/super-adminn/register
+ * @access Public
+ */
+export const superAdminRegister = async (req, res) => {
+  try {
+    const userId = req.superAdminDetails || req.superAdmin_obj_id || "Self-Super_Admin";
+    console.log("req.body", req.adminDetails, req.admin_obj_id, userId);
+    const {
+      email,
+      firstName,
+      lastName,
+      countryCode,
+      mobileNumber,
+      alternativeMobileNumber,
+      dob,
+      gender,
+      city,
+      state,
+      country,
+      pincode,
+      linkedinUrl,
+      TCPolicy,
+      password,
+      confirmPassword,
+      otp,
+    } = req.body;
+
+    const action = actionType.SUPER_ADMIN_REGISTER;
+    const portfolioFiles = req.files?.portfolioFiles || [];
+
+    // --------- 1. Required Checks ----------
+    if (!email || !firstName || !lastName || !otp) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.PARAMETER_MISSING,
+        msg: responseMessages.PARAMETER_MISSING,
+      });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "Invalid email format",
+      });
+    }
+
+    // --------- 2. Check existing user ----------
+    let user = await prismaDB.User.findUnique({ where: { email } });
+    if (user) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.CONFLICT,
+        msg: "User already registered. Please login instead.",
+      });
+    }
+
+    // --------- 3. OTP Validation ----------
+    const recentOtp = await prismaDB.OTP.findFirst({
+      where: { email, action },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!recentOtp) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.NOT_FOUND,
+        msg: "OTP not found or expired",
+      });
+    }
+
+    if (recentOtp.expiresAt < new Date()) {
+      await prismaDB.OTP.delete({ where: { id: recentOtp.id } });
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "OTP expired. Please request a new one.",
+      });
+    }
+
+    if (recentOtp.otp !== otp) {
+      await prismaDB.OTP.delete({ where: { id: recentOtp.id } });
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "Invalid OTP",
+      });
+    }
+
+    // Delete used OTP
+    await prismaDB.OTP.delete({ where: { id: recentOtp.id } });
+
+    // ---------- 4. Create New User ----------
+    user = await prismaDB.User.create({
+      data: {
+        email,
+        firstName,
+        lastName,
+        countryCode: countryCode || null,
+        mobileNumber: mobileNumber || null,
+        alternativeMobileNumber: alternativeMobileNumber || null,
+        role: roleType.SUPER_ADMIN,
+        authProvider: AuthProvider.OTP,
+        createdBy: userId,
+      },
+    });
+
+    // ---------- 5. Create Address ----------
+    await prismaDB.Address.create({
+      data: {
+        city,
+        state,
+        country,
+        pincode,
+        user: { connect: { id: user?.id } },
+        createdBy: userId,
+      },
+    });
+
+    // ---------- 6. Handle File Uploads ----------
+    let portfolioUrls = [];
+    let portfolioPreviewUrls = [];
+
+    if (portfolioFiles.length > 0) {
+      const portfolioResults = await processUploadedFiles(
+        portfolioFiles,
+        uploadFolderName.SUPER_ADMIN_PORTFOLIO,
+        email
+      );
+      portfolioUrls = portfolioResults.imageUrlsArray;
+      portfolioPreviewUrls = portfolioResults.previewUrlsArray;
+    }
+
+    // check for dd-mm-yyyy
+    let formattedDob = null;
+
+    if (dob) {
+      formattedDob = new Date(dob); // Works fine for "2001-09-29"
+      if (isNaN(formattedDob.getTime())) {
+        formattedDob = null; // fallback if somehow invalid
+      }
+    }
+
+    // ---------- 7. Create Super Admin ----------
+    await prismaDB.SuperAdmin.create({
+      data: {
+        userId: user.id,
+        portfolioUrl: portfolioUrls[0] || null,
+        portfolioPreviewUrl: portfolioPreviewUrls[0] || null,
+        gender,
+        dob: formattedDob || null,
+        linkedinUrl,
+        TCPolicy: TCPolicy === "true" || TCPolicy === true,
+        createdBy: userId,
+      },
+    });
+
+    // ---------- 8. Mark OTP Verified ----------
+    await prismaDB.UserOTPVerification.create({
+      data: {
+        otp,
+        emailVerified: true,
+        expiresAt: new Date(),
+        user: {
+          connect: { id: user.id },
+        },
+        createdBy: userId,
+      },
+    });
+
+    // ---------- 9. Set Password ----------
+    if (password) {
+      if (password.length < 6) {
+        return actionFailedResponse({
+          res,
+          errorCode: responseFlags.BAD_REQUEST,
+          msg: "Password must be at least 6 characters long",
+        });
+      }
+      if (password !== confirmPassword) {
+        return actionFailedResponse({
+          res,
+          errorCode: responseFlags.BAD_REQUEST,
+          msg: "Password and confirm password do not match",
+        });
+      }
+
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
+      await prismaDB.ResetPasswordToken.create({
+        data: {
+          userId: user.id,
+          password: hashedPassword,
+          previousPassword: [hashedPassword],
+          createdBy: userId,
+        },
+      });
+    }
+
+    // ---------- 10. Final Fetch ----------
+    const fullUserData = await prismaDB.User.findUnique({
+      where: { id: user.id },
+      include: {
+        address: true,
+        superAdmin: true,
+        UserOTPVerification: true,
+      },
+    });
+
+    const msg = "Super Admin registered successfully.";
+    return actionCompleteResponse({
+      res,
+      msg,
+      data: { fullUserData },
+    });
+  } catch (error) {
+    console.error("Error in superAdminRegister:", error);
+    return actionFailedResponse({
+      res,
+      errorCode: responseFlags.ACTION_FAILED,
+      msg: error.message || "Error during Super Admin registration.",
+    });
+  }
+};
+
+/**
  * @desc Get User using Many Filters
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
@@ -1115,18 +1367,17 @@ export const forgotPassword = async (req, res) => {
  * @route GET /api/v1/auth/employee/get-users-with-filters
  * @access Public
  */
-export const getAllUsers = async (req, res) => {
+export const getUsersWithFilters = async (req, res) => {
   try {
     const {
       userId,
-      country,
       mobileNumber,
       role,
       is_active,
       experience,
       industry,
       functionArea,
-      search, // optional search term
+      search,
       page = 1,
       limit = 20,
     } = req.query;
@@ -1143,10 +1394,6 @@ export const getAllUsers = async (req, res) => {
     if (role) filters.role = role;
     if (is_active !== undefined)
       filters.is_active = is_active === "true" || is_active === true;
-    if (country)
-      filters.address = {
-        country: { contains: country, mode: "insensitive" },
-      };
 
     // Optional search filter
     if (search) {
@@ -1181,8 +1428,7 @@ export const getAllUsers = async (req, res) => {
           (!industry ||
             emp?.industry?.toLowerCase() === industry?.toLowerCase()) &&
           (!functionArea ||
-            emp?.functionArea?.toLowerCase() ===
-              functionArea?.toLowerCase())
+            emp?.functionArea?.toLowerCase() === functionArea?.toLowerCase())
         );
       });
     }

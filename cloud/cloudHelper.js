@@ -1,13 +1,13 @@
 import path from "path";
-import { uploadToCloudinary } from "./cloudStorage.js";
+import { uploadToCloudinary } from "./cloudinaryCloudStorage.js";
 
 /**
  * Processes uploaded files and returns arrays of public URLs, preview URLs, and filenames.
  * @param {Array} files - Array of uploaded files (from req.files).
- * @param {String} name - The category name used in the filename.
+ * @param {String} email - The category name used in the filename.
  * @returns {{ imageUrlsArray: string[], previewUrlsArray: string[], fileNamesArray: string[] }}
  */
-export const processUploadedFiles = async (files, name, folderName) => {
+export const processUploadedFiles = async (files, folderName, email) => {
   const imageUrlsArray = [];
   const previewUrlsArray = [];
 
@@ -15,9 +15,11 @@ export const processUploadedFiles = async (files, name, folderName) => {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const extension = path.extname(file.originalname).slice(1);
-      const fileName = `${name}_${i + 1}.${extension}`;
+      const fileName = `${email}_${i + 1}.${extension}`;
       const filePath = `JOBPOLODATA/${folderName}/${fileName}`;
+      console.log("filePath", filePath);
 
+      // Upload to Cloudinary
       const { publicLink, previewLink } = await uploadToCloudinary(
         filePath,
         file

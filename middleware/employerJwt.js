@@ -11,31 +11,49 @@ export const employerJwtToken = async (req, res, next) => {
 
   try {
     if (!token) {
-      throw new Error("Permission denied. Token is missing.");
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.UNAUTHORIZED,
+        msg: "Permission denied. Token is missing.",
+      });
     }
 
     // Decode and verify the token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const employerId = decoded._id;
+    const employerId = decoded._id || decoded.email;
+    // console.log("Decoded Token:", decoded);
 
     if (!employerId) {
-      throw new Error("Invalid token.");
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.UNAUTHORIZED,
+        msg: "Invalid token.",
+      });
     }
 
     const employer = await prismaDB.User.findUnique({
       where: { id: employerId },
+      include: { employer: true },
     });
 
     if (!employer) {
-      throw new Error("employer not found.");
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.NOT_FOUND,
+        msg: "User not found.",
+      });
     }
 
     // Check if the role is OPERATOR or USER
     if (
       employer.role !== roleType.EMPLOYER &&
-      employer.role !== roleType.SUPERADMIN
+      employer.role !== roleType.SUPER_ADMIN
     ) {
-      throw new Error("Unauthorized. employer or Super Admin access only.");
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.UNAUTHORIZED,
+        msg: "Unauthorized. Access denied for this role.",
+      });
     }
 
     // Check if employer is active
@@ -49,12 +67,17 @@ export const employerJwtToken = async (req, res, next) => {
 
     req.employer_obj_id = employer.id;
     req.employerDetails = `${employer.firstName} ${employer.lastName} - ${employer.role}`;
-    console.log("objeid", req.employer_obj_id);
-    console.log("objeiddeaiial", req.employerDetails);
+
+    console.log("employer_obj_id", req.employer_obj_id);
+    console.log("employerDetails", req.employerDetails);
 
     return next();
   } catch (err) {
-    console.error("Operator Token Error:", err.message);
-    return actionFailedResponse(res, null, err.message);
+    console.error("Employer Token Error:", err.message);
+    return actionFailedResponse({
+      res,
+      errorCode: responseFlags.ACTION_FAILED,
+      msg: err.message || "Token validation failed.",
+    });
   }
 };

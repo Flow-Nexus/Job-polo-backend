@@ -20,9 +20,10 @@ export const superAdminJwtToken = async (req, res, next) => {
 
     // Decode and verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const superAdminId = decoded._id;
+    const userId = decoded._id || decoded.email;
+    // console.log("Decoded Token:", decoded);
 
-    if (!superAdminId) {
+    if (!userId) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.UNAUTHORIZED,
@@ -30,40 +31,35 @@ export const superAdminJwtToken = async (req, res, next) => {
       });
     }
 
-    const superAdmin = await prismaDB.User.findUnique({
-      where: { id: superAdminId },
+    // Fetch User along with SuperAdmin relation
+    const user = await prismaDB.User.findUnique({
+      where: { id: userId },
+      include: { superAdmin: true },
     });
-    if (!superAdmin) {
+
+    if (!user || !user.superAdmin) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.NOT_FOUND,
-        msg: "User not found.",
+        msg: "SuperAdmin not found.",
       });
     }
 
-    // Validate allowed roles
-    const allowedRoles = [roleType.SUPERADMIN];
-    if (!allowedRoles.includes(superAdmin.role)) {
+    // Check role and active status
+    if (user.role !== roleType.SUPER_ADMIN || !user.superAdmin.is_active) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.UNAUTHORIZED,
-        msg: "Unauthorized. Access denied for this role.",
+        msg: "Unauthorized SuperAdmin. Please contact admin.",
       });
     }
 
-    if (!superAdmin.is_active) {
-      return actionFailedResponse({
-        res,
-        errorCode: responseFlags.UNAUTHORIZED,
-        msg: "Unauthorized User. Please contact admin.",
-      });
-    }
+    // Attach info to request
+    req.superAdmin_obj_id = user.superAdmin.id;
+    req.superAdminDetails = `${user.firstName} ${user.lastName} - ${user.role}`;
 
-    // Attach superAdmin info to request
-    req.superAdmin_obj_id = superAdmin.id;
-    req.superAdminDetails = `${superAdmin.firstName} ${superAdmin.lastName} - ${superAdmin.role}`;
-    console.log("objeid", req.superAdmin_obj_id);
-    console.log("objeiddeaiial", req.superAdminDetails);
+    console.log("superAdmin_obj_id:", req.superAdmin_obj_id);
+    console.log("superAdminDetails:", req.superAdminDetails);
 
     return next();
   } catch (err) {

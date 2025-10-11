@@ -33,18 +33,31 @@ export const tokenDetails = {
   JWT_SECRET: process.env.JWT_SECRET,
 };
 
+//for user gender
+export const UserGender = {
+  MALE: "MALE",
+  FEMALE: "FEMALE",
+  OTHER: "OTHER",
+};
+export const availableUserGender = [
+  UserGender.MALE,
+  UserGender.FEMALE,
+  UserGender.OTHER,
+];
+
 //for user role
 export const actionType = {
   LOGIN: "LOGIN",
   EMPLOYEE_REGISTER: "EMPLOYEE-REGISTER",
   EMPLOYER_REGISTER: "EMPLOYER-REGISTER",
+  SUPER_ADMIN_REGISTER: "SUPER_ADMIN_REGISTER",
   SETPASSWORD: "RESET-PASSWORD",
   FORGOTPASSWORD: "FORGOT-PASSWORD",
 };
 export const availableActionType = [
   actionType.LOGIN,
   actionType.EMPLOYEE_REGISTER,
-  actionType.EMPLOYER_REGISTER,
+  actionType.SUPER_ADMIN_REGISTER,
   actionType.SETPASSWORD,
   actionType.FORGOTPASSWORD,
 ];
@@ -53,13 +66,13 @@ export const availableActionType = [
 export const roleType = {
   EMPLOYEE: "EMPLOYEE",
   EMPLOYER: "EMPLOYER",
-  SUPERADMIN: "SUPERADMIN",
+  SUPER_ADMIN: "SUPER_ADMIN",
   ADMIN: "ADMIN",
 };
 export const availableRole = [
   roleType.EMPLOYEE,
   roleType.EMPLOYER,
-  roleType.SUPERADMIN,
+  roleType.SUPER_ADMIN,
   roleType.ADMIN,
 ];
 
@@ -73,4 +86,18 @@ export const availableAuthProvider = [
   roleType.OTP,
   roleType.GOOGLE,
   roleType.ADMIN_CREATED,
+];
+
+//for cloud storage
+export const uploadFolderName = {
+  EMPLOYEE_RESUME: "EMPLOYEE_RESUME",
+  EMPLOYEE_WORK_SAMPLE: "EMPLOYEE_WORK_SAMPLE",
+  EMPLOYEE_IMAGE: "EMPLOYEE_IMAGE",
+  SUPER_ADMIN_PORTFOLIO: "SUPER_ADMIN_PORTFOLIO",
+};
+export const availableUploadFolderName = [
+  uploadFolderName.EMPLOYEE_RESUME,
+  uploadFolderName.EMPLOYEE_WORK_SAMPLE,
+  uploadFolderName.EMPLOYEE_IMAGE,
+  uploadFolderName.SUPER_ADMIN_PORTFOLIO,
 ];
