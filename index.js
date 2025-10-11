@@ -18,6 +18,15 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+//test api
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Job Polo Server is running successfully 🚀",
+    time: new Date().toISOString(),
+  });
+});
+
 // Database connection
 prisma
   .$connect()
@@ -27,15 +36,6 @@ prisma
   .catch((e) => {
     console.error("Failed to connect to the MySQL database:", e);
   });
-
-//test api
-app.get("/", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Job Polo Server is running successfully 🚀",
-    time: new Date().toISOString(),
-  });
-});
 
 //Routes
 app.use("/api/v1/auth", authRoutes);
