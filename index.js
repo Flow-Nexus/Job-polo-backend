@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { PrismaClient } from "./generated/prisma/index.js";
 import authRoutes from "./routes/authRoutes.js";
 import jobRoutes from "./routes/jobRoutes.js";
+import { actionCompleteResponse } from "./config/common.js";
 // import { createServer } from "http";
 // import { Server } from "socket.io";
 
@@ -20,10 +21,10 @@ app.use(express.urlencoded({ extended: true }));
 
 //test api
 app.get("/", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Job Polo Server is running successfully 🚀",
-    time: new Date().toISOString(),
+  actionCompleteResponse({
+    res,
+    msg: "Hello JOB Polo",
+    data: new Date().toISOString(),
   });
 });
 
