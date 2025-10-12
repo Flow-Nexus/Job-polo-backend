@@ -580,7 +580,7 @@ export const employerRegister = async (req, res) => {
 };
 
 /**
- * @desc Login For all with email, Password and OTP
+ * @desc Login For all with email and Password, Email and OTP
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  * @return {Object} JSON response with success or error message
