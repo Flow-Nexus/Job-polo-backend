@@ -1,5 +1,9 @@
 import Joi from "joi";
-import { availableActionType, availableRole, availableUserGender } from "../config/config.js";
+import {
+  availableActionType,
+  availableRole,
+  availableUserGender,
+} from "../config/config.js";
 
 export const sendOTPValidator = Joi.object({
   email: Joi.string().email().required(),
@@ -127,41 +131,34 @@ export const employerRegisterValidator = Joi.object({
 });
 
 export const loginValidator = Joi.object({
-  email: Joi.string()
-    .email({ tlds: { allow: false } })
-    .when("googleToken", {
-      is: Joi.exist(),
-      then: Joi.optional(),
-      otherwise: Joi.required(),
-    })
-    .messages({
-      "string.email": "Invalid email format",
-      "string.empty": "Email is required",
-    }),
-  password: Joi.string()
-    .min(6)
-    .when("googleToken", {
-      is: Joi.exist(),
-      then: Joi.optional(),
-      otherwise: Joi.required(),
-    })
-    .messages({
-      "string.min": "Password must be at least 6 characters",
-      "string.empty": "Password is required",
-    }),
+  email: Joi.string().email().when("googleToken", {
+    is: Joi.exist(),
+    then: Joi.optional(),
+    otherwise: Joi.required(),
+  }),
+
+  password: Joi.string().min(6).when("googleToken", {
+    is: Joi.exist(),
+    then: Joi.optional(),
+    otherwise: Joi.optional(),
+  }),
+
   otp: Joi.string()
     .length(6)
+    .pattern(/^[0-9]+$/)
     .when("googleToken", {
       is: Joi.exist(),
       then: Joi.optional(),
-      otherwise: Joi.required(),
-    })
-    .messages({
-      "string.empty": "OTP is required",
-      "string.length": "OTP must be 6 digits",
+      otherwise: Joi.optional(),
     }),
+
   googleToken: Joi.string().optional(),
-});
+})
+  .or("googleToken", "password", "otp")
+  .messages({
+    "object.missing":
+      "Provide valid credentials: (email+password), (email+otp), or (googleToken).",
+  });
 
 export const resetPasswordValidator = Joi.object({
   userId: Joi.string().optional(),
@@ -256,7 +253,9 @@ export const superAdminRegisterValidator = Joi.object({
 export const getUsersWithValidator = Joi.object({
   userId: Joi.string().uuid().optional(),
   mobileNumber: Joi.string().optional(),
-  role: Joi.string().valid(...Object.values(availableRole)).optional(),
+  role: Joi.string()
+    .valid(...Object.values(availableRole))
+    .optional(),
   is_active: Joi.boolean().optional(),
   experience: Joi.number().integer().min(0).optional(),
   industry: Joi.string().optional(),

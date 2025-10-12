@@ -592,7 +592,7 @@ export const login = async (req, res) => {
     const { email, password, otp, googleToken } = req.body;
     const action = actionType.LOGIN;
 
-    // 1. GOOGLE LOGIN FLOW
+    // ------------------ 1 GOOGLE LOGIN FLOW ------------------
     if (googleToken) {
       try {
         const ticket = await googleClient.verifyIdToken({
@@ -623,14 +623,15 @@ export const login = async (req, res) => {
 
         // Register if not exists
         if (!user) {
-          const nameParts = googleName?.split(" ") || [];
+          const [firstName, lastName] = (googleName || "").split(" ");
           user = await prismaDB.User.create({
             data: {
               email: googleEmail,
-              firstName: nameParts[0] || "",
-              lastName: nameParts[1] || "",
+              firstName,
+              lastName,
               role: roleType.EMPLOYEE,
               authProvider: AuthProvider.GOOGLE,
+              is_active: true,
             },
           });
 
@@ -700,124 +701,156 @@ export const login = async (req, res) => {
       }
     }
 
-    //2. NORMAL LOGIN (Email/Password)
-    if (!email || !password || !otp) {
-      return actionFailedResponse({
-        res,
-        errorCode: responseFlags.PARAMETER_MISSING,
-        msg: responseMessages.PARAMETER_MISSING,
-      });
-    }
-
-    const user = await prismaDB.User.findUnique({
-      where: { email },
-      include: {
-        employee: true,
-        address: true,
-        resetPasswordTokens: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
+    // ------------------ 2 EMAIL + PASSWORD LOGIN ------------------
+    if (email && password) {
+      const user = await prismaDB.User.findUnique({
+        where: { email },
+        include: {
+          employee: true,
+          address: true,
+          resetPasswordTokens: { orderBy: { createdAt: "desc" }, take: 1 },
         },
-      },
-    });
+      });
 
-    if (!user) {
-      return actionFailedResponse({
+      if (!user) {
+        return actionFailedResponse({
+          res,
+          errorCode: responseFlags.NOT_FOUND,
+          msg: "User not found. Please register first.",
+        });
+      }
+
+      // Use the latest password hash from ResetPasswordToken
+      const latestPasswordData = user.resetPasswordTokens?.[0];
+      if (!latestPasswordData || !latestPasswordData.password) {
+        return actionFailedResponse({
+          res,
+          errorCode: responseFlags.BAD_REQUEST,
+          msg: "Password not set. Please reset your password.",
+        });
+      }
+
+      const isPasswordValid = await bcrypt.compare(
+        password,
+        latestPasswordData.password
+      );
+
+      if (!isPasswordValid) {
+        return actionFailedResponse({
+          res,
+          errorCode: responseFlags.BAD_REQUEST,
+          msg: "Invalid email or password.",
+        });
+      }
+
+      if (!user.is_active) {
+        return actionFailedResponse({
+          res,
+          errorCode: responseFlags.UNAUTHORIZED,
+          msg: "Account is inactive. Please contact admin.",
+        });
+      }
+
+      // ---------- JWT TOKEN ----------
+      const tokenPayload = {
+        _id: user.id,
+        email: user.email,
+        role: user.role,
+      };
+      const token = generateAccessToken(tokenPayload, "30d");
+
+      const { resetPasswordTokens, ...userWithoutPasswords } = user;
+
+      const msg = "Login successful.";
+      return actionCompleteResponse({
         res,
-        errorCode: responseFlags.NOT_FOUND,
-        msg: "User not found. Please register first.",
+        msg,
+        data: { token, user: userWithoutPasswords },
       });
     }
 
-    // Use the latest password hash from ResetPasswordToken
-    const latestPasswordData = user.resetPasswordTokens?.[0];
+    // ------------------ 3 EMAIL + OTP LOGIN ------------------
+    if (email && otp && !password) {
+      const user = await prismaDB.User.findUnique({
+        where: { email },
+        include: { employee: true, address: true },
+      });
 
-    if (!latestPasswordData || !latestPasswordData.password) {
-      return actionFailedResponse({
+      if (!user) {
+        return actionFailedResponse({
+          res,
+          errorCode: responseFlags.NOT_FOUND,
+          msg: "User not found. Please register first.",
+        });
+      }
+
+      // ---------- OTP VERIFICATION ----------
+      const recentOtp = await prismaDB.OTP.findFirst({
+        where: { email, action },
+        orderBy: { createdAt: "desc" },
+      });
+      if (!recentOtp) {
+        return actionFailedResponse({
+          res,
+          errorCode: responseFlags.NOT_FOUND,
+          msg: "OTP not found or expired",
+        });
+      }
+
+      if (recentOtp.expiresAt < new Date()) {
+        await prismaDB.OTP.delete({ where: { id: recentOtp.id } });
+        return actionFailedResponse({
+          res,
+          errorCode: responseFlags.BAD_REQUEST,
+          msg: "OTP expired. Please request a new one.",
+        });
+      }
+
+      if (recentOtp.otp !== otp) {
+        await prismaDB.OTP.delete({ where: { id: recentOtp.id } });
+        return actionFailedResponse({
+          res,
+          errorCode: responseFlags.BAD_REQUEST,
+          msg: "Invalid OTP",
+        });
+      }
+
+      await prismaDB.OTP.delete({ where: { id: recentOtp.id } });
+
+      if (!user.is_active) {
+        return actionFailedResponse({
+          res,
+          errorCode: responseFlags.UNAUTHORIZED,
+          msg: "Account is inactive. Please contact admin.",
+        });
+      }
+
+      // ---------- JWT TOKEN ----------
+      const tokenPayload = {
+        _id: user.id,
+        email: user.email,
+        role: user.role,
+      };
+      const token = generateAccessToken(tokenPayload, "30d");
+
+      const msg = "Login with OTP successful.";
+      return actionCompleteResponse({
         res,
-        errorCode: responseFlags.BAD_REQUEST,
-        msg: "Password not set. Please reset your password.",
+        msg,
+        data: { token, user },
       });
     }
 
-    const isPasswordValid = await bcrypt.compare(
-      password,
-      latestPasswordData.password
-    );
-    if (!isPasswordValid) {
-      return actionFailedResponse({
-        res,
-        errorCode: responseFlags.BAD_REQUEST,
-        msg: "Invalid credentials.",
-      });
-    }
-
-    // ---------- OTP VERIFICATION ----------
-    const recentOtp = await prismaDB.OTP.findFirst({
-      where: { email, action },
-      orderBy: { createdAt: "desc" },
-    });
-    if (!recentOtp) {
-      return actionFailedResponse({
-        res,
-        errorCode: responseFlags.NOT_FOUND,
-        msg: "OTP not found or expired",
-      });
-    }
-
-    // Check OTP expiry
-    if (recentOtp.expiresAt < new Date()) {
-      await prismaDB.oTP.delete({ where: { id: recentOtp.id } });
-      return actionFailedResponse({
-        res,
-        errorCode: responseFlags.BAD_REQUEST,
-        msg: "OTP expired. Please request a new one.",
-      });
-    }
-
-    // Check OTP match
-    if (recentOtp.otp !== otp) {
-      await prismaDB.oTP.delete({ where: { id: recentOtp.id } });
-      return actionFailedResponse({
-        res,
-        errorCode: responseFlags.BAD_REQUEST,
-        msg: "Invalid OTP",
-      });
-    }
-
-    // Delete used OTP
-    await prismaDB.oTP.delete({ where: { id: recentOtp.id } });
-
-    // ---------- ACCOUNT ACTIVE CHECK ----------
-    if (!user.is_active) {
-      return actionFailedResponse({
-        res,
-        errorCode: responseFlags.UNAUTHORIZED,
-        msg: "Account is inactive. Please contact admin.",
-      });
-    }
-
-    // ---------- JWT TOKEN ----------
-    const tokenPayload = {
-      _id: user.id,
-      email: user.email,
-      role: user.role,
-    };
-
-    const token = generateAccessToken(tokenPayload, "30d");
-    const { resetPasswordTokens, ...userWithoutPasswords } = user;
-
-    const msg = "Login successful.";
-    return actionCompleteResponse({
+    // ------------------ INVALID COMBINATION ------------------
+    const msg =
+      "Provide valid credentials: either (email+password), (email+otp), or (googleToken).";
+    return actionFailedResponse({
       res,
+      errorCode: responseFlags.PARAMETER_MISSING,
       msg,
-      data: {
-        token,
-        user: userWithoutPasswords,
-      },
     });
   } catch (error) {
-    console.error("Error in employeeLogin:", error);
+    console.error("Error in login:", error);
     return actionFailedResponse({
       res,
       errorCode: responseFlags.ACTION_FAILED,
@@ -1137,7 +1170,8 @@ export const forgotPassword = async (req, res) => {
  */
 export const superAdminRegister = async (req, res) => {
   try {
-    const userId = req.superAdminDetails || req.superAdmin_obj_id || "Self-Super_Admin";
+    const userId =
+      req.superAdminDetails || req.superAdmin_obj_id || "Self-Super_Admin";
     console.log("req.body", req.adminDetails, req.admin_obj_id, userId);
     const {
       email,
