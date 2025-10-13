@@ -53,6 +53,7 @@ export const actionType = {
   SUPER_ADMIN_REGISTER: "SUPER_ADMIN_REGISTER",
   SETPASSWORD: "RESET-PASSWORD",
   FORGOTPASSWORD: "FORGOT-PASSWORD",
+  JOBPOST: "JOB-POST",
 };
 export const availableActionType = [
   actionType.LOGIN,
@@ -60,6 +61,7 @@ export const availableActionType = [
   actionType.SUPER_ADMIN_REGISTER,
   actionType.SETPASSWORD,
   actionType.FORGOTPASSWORD,
+  actionType.JOBPOST,
 ];
 
 //for user role
@@ -94,10 +96,12 @@ export const uploadFolderName = {
   EMPLOYEE_WORK_SAMPLE: "EMPLOYEE_WORK_SAMPLE",
   EMPLOYEE_IMAGE: "EMPLOYEE_IMAGE",
   SUPER_ADMIN_PORTFOLIO: "SUPER_ADMIN_PORTFOLIO",
+  JOB_POST_LOGO: "JOB_POST_LOGO",
 };
 export const availableUploadFolderName = [
   uploadFolderName.EMPLOYEE_RESUME,
   uploadFolderName.EMPLOYEE_WORK_SAMPLE,
   uploadFolderName.EMPLOYEE_IMAGE,
   uploadFolderName.SUPER_ADMIN_PORTFOLIO,
+  uploadFolderName.JOB_POST_LOGO,
 ];

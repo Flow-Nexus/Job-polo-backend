@@ -1306,7 +1306,7 @@ export const superAdminRegister = async (req, res) => {
     if (dob) {
       formattedDob = new Date(dob); // Works fine for "2001-09-29"
       if (isNaN(formattedDob.getTime())) {
-        formattedDob = null; // fallback if somehow invalid
+        formattedDob = null; 
       }
     }
 

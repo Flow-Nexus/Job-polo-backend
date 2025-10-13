@@ -21,8 +21,9 @@ const authRoutes = express.Router();
 
 
 // EMPLOYER ROUTES
-authRoutes.get(
+authRoutes.post(
   "/employer/post-job",
+  upload.fields([{ name: "logoFiles", maxCount: 1 }]),
   // validate({ body: getUsersWithValidator }),
   employerJwtToken,
   postJob
