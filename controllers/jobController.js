@@ -26,7 +26,8 @@ import { processUploadedFiles } from "../cloud/cloudHelper.js";
 export const postJob = async (req, res) => {
   try {
     const postedby = req.employerDetails || req.superAdminDetails;
-    const userId = req.employer_obj_id || req.superAdmin_obj_id;
+    const superAdminIdBy = req.superAdmin_obj_id;
+    const employeeIdBy = req.employer_obj_id;
     const {
       title,
       description,
@@ -55,57 +56,45 @@ export const postJob = async (req, res) => {
       });
     }
 
-    // Determine Employer/SuperAdmin record
-    let employerRecord = null;
+    // Determine who is posting
+    let useremail = null;
+    let employerId = null;
+    let superAdminId = null;
 
-    if (!userId) {
-      return actionFailedResponse({
-        res,
-        errorCode: responseFlags.FORBIDDEN,
-        msg: "User not authorized to post a job.",
+    if (employeeIdBy) {
+      // EMPLOYER POSTING
+      const employer = await prismaDB.Employer.findUnique({
+        where: { userId: employeeIdBy },
       });
-    }
-
-    if (req.employer_obj_id) {
-      // Employer posting
-      employerRecord = await prismaDB.Employer.findUnique({
-        where: { userId: req.employer_obj_id },
-      });
-
-      if (!employerRecord) {
+      console.log("employer", employer);
+      if (!employer) {
         return actionFailedResponse({
           res,
           errorCode: responseFlags.NOT_FOUND,
           msg: "Employer record not found for this user.",
         });
       }
-    } else if (req.superAdmin_obj_id) {
-      // SuperAdmin posting
-      const superAdminRecord = await prismaDB.SuperAdmin.findUnique({
-        where: { userId: req.superAdmin_obj_id },
-      });
+      employerId = employer.id;
+      useremail = employer.user.email;
+    }
 
-      if (!superAdminRecord) {
+    if (superAdminIdBy) {
+      // SUPERADMIN POSTING
+      const superAdmin = await prismaDB.SuperAdmin.findUnique({
+        where: { userId: superAdminIdBy },
+        include: { user: true },
+      });
+      console.log("superAdmin", superAdmin);
+      if (!superAdmin) {
         return actionFailedResponse({
           res,
           errorCode: responseFlags.NOT_FOUND,
           msg: "Super Admin record not found for this user.",
         });
       }
-
-      // Optional: create an Employer record for SuperAdmin if needed
-      employerRecord = await prismaDB.Employer.upsert({
-        where: { userId: req.superAdmin_obj_id },
-        update: {},
-        create: {
-          userId: req.superAdmin_obj_id,
-          companyName: "Super Admin",
-        },
-      });
+      superAdminId = superAdmin.id;
+      useremail = superAdmin.user.email;
     }
-
-    // Now always use the correct Employer.id
-    const employerIdForJob = employerRecord.id;
 
     // ---------- OTP VERIFICATION ----------
     const recentOtp = await prismaDB.OTP.findFirst({
@@ -142,16 +131,15 @@ export const postJob = async (req, res) => {
     // Delete used OTP
     await prismaDB.OTP.delete({ where: { id: recentOtp.id } });
 
-    // NEW PART: Handle file uploads
+    // ---------- FILE UPLOAD ----------
     let logoUrl = null;
     let logoPreviewUrl = null;
-    console.log("logoUrl", logoUrl);
 
     if (jobLogoFiles.length > 0) {
       const logoResults = await processUploadedFiles(
         jobLogoFiles,
         uploadFolderName.JOB_POST_LOGO,
-        title
+        useremail
       );
       logoUrl = logoResults.imageUrlsArray?.[0] || null;
       logoPreviewUrl = logoResults.previewUrlsArray?.[0] || null;
@@ -181,11 +169,10 @@ export const postJob = async (req, res) => {
       });
     }
 
-    // check for dd-mm-yyyy
+    // ---------- DEADLINE ----------
     let formattedDeadline = null;
-
     if (deadline) {
-      formattedDeadline = new Date(deadline); // Works fine for "2001-09-29"
+      formattedDeadline = new Date(deadline); // for "2001-09-29"
       if (isNaN(formattedDeadline.getTime())) {
         formattedDeadline = null;
       }
@@ -212,7 +199,8 @@ export const postJob = async (req, res) => {
           : [],
         openings: Number(openings) || 0,
         deadline: formattedDeadline,
-        employerId: userId,
+        employerId: employerId,
+        superAdminId: superAdminId,
         createdBy: postedby,
         jobPostAddresses: {
           create: addressesArray.map((addr) => ({

@@ -20,10 +20,10 @@ export const employerJwtToken = async (req, res, next) => {
 
     // Decode and verify the token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const employerId = decoded._id || decoded.email;
+    const userId = decoded._id || decoded.email;
     // console.log("Decoded Token:", decoded);
 
-    if (!employerId) {
+    if (!userId) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.UNAUTHORIZED,
@@ -31,12 +31,13 @@ export const employerJwtToken = async (req, res, next) => {
       });
     }
 
-    const employer = await prismaDB.User.findUnique({
-      where: { id: employerId },
-      include: { employer: true },
+    // Fetch user with both relations (Employer + SuperAdmin)
+    const user = await prismaDB.User.findUnique({
+      where: { id: userId },
+      include: { employer: true, superAdmin: true },
     });
 
-    if (!employer) {
+    if (!user) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.NOT_FOUND,
@@ -44,33 +45,35 @@ export const employerJwtToken = async (req, res, next) => {
       });
     }
 
-    // Check if the role is OPERATOR or USER
-    if (
-      employer.role !== roleType.EMPLOYER &&
-      employer.role !== roleType.SUPER_ADMIN
-    ) {
+    // Check account active
+    if (!user.is_active) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.UNAUTHORIZED,
-        msg: "Unauthorized. Access denied for this role.",
+        msg: "Unauthorized user. Please contact admin.",
       });
     }
 
-    // Check if employer is active
-    if (!employer.is_active) {
-      return res.status(401).json({
-        success: false,
-        status: 401,
-        message: "Unauthorised employer, Please Contact Admin",
+    // Allow both Employer and SuperAdmin roles
+    if (user.role === roleType.EMPLOYER && user.employer) {
+      req.employer_obj_id = user.id;
+      req.employerDetails = `${user.firstName} ${user.lastName} - ${user.role}`;
+      console.log("Employee Obj Id authenticated", req.employer_obj_id);
+      console.log("Employee Name authenticated", req.employerDetails);
+    } else if (user.role === roleType.SUPER_ADMIN && user.superAdmin) {
+      req.superAdmin_obj_id = user.id;
+      req.superAdminDetails = `${user.firstName} ${user.lastName} - ${user.role}`;
+      console.log("SuperAdmin obj id authenticated", req.superAdmin_obj_id);
+      console.log("SuperAdmin Name authenticated", req.superAdminDetails);
+    } else {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.UNAUTHORIZED,
+        msg: "Unauthorized. Only Employer or SuperAdmin can access.",
       });
     }
 
-    req.employer_obj_id = employer.id;
-    req.employerDetails = `${employer.firstName} ${employer.lastName} - ${employer.role}`;
-
-    console.log("employer_obj_id", req.employer_obj_id);
-    console.log("employerDetails", req.employerDetails);
-
+    // Continue to controller
     return next();
   } catch (err) {
     console.error("Employer Token Error:", err.message);

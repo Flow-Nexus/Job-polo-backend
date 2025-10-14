@@ -55,7 +55,7 @@ export const superAdminJwtToken = async (req, res, next) => {
     }
 
     // Attach info to request
-    req.superAdmin_obj_id = user.superAdmin.id;
+    req.superAdmin_obj_id = user.id;
     req.superAdminDetails = `${user.firstName} ${user.lastName} - ${user.role}`;
 
     console.log("superAdmin_obj_id:", req.superAdmin_obj_id);

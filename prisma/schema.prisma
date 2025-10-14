@@ -227,7 +227,8 @@ model SuperAdmin {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id])
+  user User  @relation(fields: [userId], references: [id])
+  jobs Job[]
 }
 
 // ---------------- Address ----------------
@@ -273,7 +274,8 @@ model Job {
   deadline         DateTime?
   logoUrl          String
   logoPreviewUrl   String
-  employerId       String
+  employerId       String?
+  superAdminId     String?
   jobPostAddressId String[]        @default([])
   is_active        Boolean         @default(true)
 
@@ -282,7 +284,8 @@ model Job {
   createdBy String?
   updatedBy String?
 
-  employer Employer @relation(fields: [employerId], references: [id])
+  employer   Employer?   @relation(fields: [employerId], references: [id])
+  superAdmin SuperAdmin? @relation(fields: [superAdminId], references: [id])
 
   applications     JobApplication[]
   savedBy          SavedJob[]
