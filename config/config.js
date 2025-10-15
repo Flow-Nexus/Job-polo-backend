@@ -137,3 +137,25 @@ export const availableEmploymentType = [
   EmploymentType.INTERNSHIP,
   EmploymentType.FREELANCE,
 ];
+
+//for Application Status
+export const ApplicationStatus = {
+  PENDING: "PENDING",
+  APPLIED: "APPLIED",
+  REJECTED: "REJECTED",
+  RESUMEVIEWED: "RESUME_VIEWED",
+  WAITINGEMPLOYERACTION: "WAITING_EMPLOYER_ACTION",
+  APPLICATIONSEND: "APPLICATION_SEND",
+  CONTACTVIEW: "CONTACT_VIEW",
+  SELECTED: "SELECTED",
+};
+export const availableApplicationStatus = [
+  ApplicationStatus.PENDING,
+  ApplicationStatus.APPLIED,
+  ApplicationStatus.REJECTED,
+  ApplicationStatus.RESUMEVIEWED,
+  ApplicationStatus.WAITINGEMPLOYERACTION,
+  ApplicationStatus.APPLICATIONSEND,
+  ApplicationStatus.CONTACTVIEW,
+  ApplicationStatus.SELECTED,
+];

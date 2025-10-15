@@ -487,7 +487,7 @@ export const updateJob = async (req, res) => {
  * @param {Object} res - Express response object
  * @return {Object} JSON response with success or error message
  * @route POST /api/v1/job/employer/get-job-with
- * @access Employer || Super Admin
+ * @access Public
  */
 export const getJobsWithFilter = async (req, res) => {
   try {
@@ -640,6 +640,109 @@ export const deleteJob = async (req, res) => {
       res,
       errorCode: responseFlags.ACTION_FAILED,
       msg: error.message || "Error deleting job",
+    });
+  }
+};
+
+/**
+ * @desc Apply Job by Employee
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @return {Object} JSON response with success or error message
+ * @route POST /api/v1/job/employee/apply-job
+ * @access Employee
+ */
+export const applyForJob = async (req, res) => {
+  try {
+    const employeeIdBy = req.employee_obj_id; 
+    const { jobId, coverLetter } = req.body;
+
+    // Validate Input
+    if (!jobId) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.PARAMETER_MISSING,
+        msg: responseMessages.PARAMETER_MISSING,
+      });
+    }
+
+    // Verify employee existence
+    const employee = await prismaDB.Employee.findUnique({
+      where: { userId: employeeIdBy },
+      include: { user: true },
+    });
+
+    if (!employee) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.NOT_FOUND,
+        msg: "Employee record not found.",
+      });
+    }
+
+    // Verify job existence and status
+    const job = await prismaDB.Job.findUnique({
+      where: { id: jobId },
+      include: {
+        employer: { include: { user: true } },
+        superAdmin: { include: { user: true } },
+      },
+    });
+
+    if (!job || !job.is_active) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.NOT_FOUND,
+        msg: "Job not found or inactive.",
+      });
+    }
+
+    // Prevent duplicate applications
+    const alreadyApplied = await prismaDB.JobApplication.findFirst({
+      where: {
+        jobId,
+        employeeId: employee.id,
+      },
+    });
+
+    if (alreadyApplied) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.ALREADY_EXISTS,
+        msg: "You have already applied for this job.",
+      });
+    }
+
+    // 🔹 5. Create job application
+    const jobApplication = await prismaDB.JobApplication.create({
+      data: {
+        jobId,
+        employeeId: employee.id,
+        coverLetter: coverLetter || null,
+        appliedBy: employee.user.email,
+      },
+      include: {
+        job: {
+          include: {
+            employer: true,
+            superAdmin: true,
+          },
+        },
+      },
+    });
+
+    // 🔹 6. Success Response
+    return actionCompleteResponse({
+      res,
+      msg: "Job application submitted successfully!",
+      data: { jobApplication },
+    });
+  } catch (error) {
+    console.error("Error applying for job:", error);
+    return actionFailedResponse({
+      res,
+      errorCode: responseFlags.ACTION_FAILED,
+      msg: error.message || "Server error while applying for job.",
     });
   }
 };

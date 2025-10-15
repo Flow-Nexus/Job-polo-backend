@@ -38,8 +38,13 @@ enum AuthProvider {
 
 enum ApplicationStatus {
   PENDING
-  ACCEPTED
+  APPLIED
   REJECTED
+  RESUMEVIEWED
+  WAITINGEMPLOYERACTION
+  APPLICATIONSEND
+  CONTACTVIEW
+  SELECTED
 }
 
 enum JobMode {
@@ -296,11 +301,11 @@ model Job {
 // ---------------- Job Applications ----------------
 model JobApplication {
   id          String            @id @default(uuid())
-  status      ApplicationStatus @default(PENDING)
   coverLetter String?
-  is_active   Boolean           @default(true)
+  status      ApplicationStatus @default(PENDING)
   jobId       String
   employeeId  String
+  is_active   Boolean           @default(true)
 
   appliedAt DateTime @default(now())
   updatedAt DateTime @updatedAt
