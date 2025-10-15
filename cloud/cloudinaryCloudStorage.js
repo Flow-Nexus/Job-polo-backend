@@ -50,4 +50,30 @@ export const uploadToCloudinary = async (folderPath, file) => {
   };
 };
 
+/**
+ * Delete a file from Cloudinary given its full URL.
+ * @param {string} folderPath - Handles main and preview URLs.
+ * @param {object} file - Multer file object
+ * @returns {object} - { publicLink, previewLink }
+ */
+export const deleteFileFromCloudinary = async (fileUrl) => {
+  if (!fileUrl) return;
 
+  try {
+    // Extract public_id from URL
+    const parts = fileUrl.split("/");
+    const fileNameWithExt = parts.pop();
+    const fileName = fileNameWithExt.split(".")[0];
+    const folderPath = parts.slice(parts.indexOf("JOBPOLODATA")).join("/");
+
+    const publicId = `${folderPath}/${fileName}`;
+
+    // Delete from Cloudinary
+    const result = await cloudinary.uploader.destroy(publicId);
+    console.log("Deleted from Cloudinary:", publicId, result);
+    return result;
+  } catch (err) {
+    console.warn("Failed to delete Cloudinary file:", fileUrl, err.message);
+    return null;
+  }
+};

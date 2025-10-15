@@ -1166,7 +1166,7 @@ export const forgotPassword = async (req, res) => {
  * @param {Object} res - Express response object
  * @return {Object} JSON response with success or error message
  * @route POST /api/v1/auth/super-adminn/register
- * @access Public
+ * @access SUPER ADMIN
  */
 export const superAdminRegister = async (req, res) => {
   try {
@@ -1399,7 +1399,7 @@ export const superAdminRegister = async (req, res) => {
  * @param {Object} res - Express response object
  * @return {Object} JSON response with success or error message
  * @route GET /api/v1/auth/employee/get-users-with-filters
- * @access Public
+ * @access EMPLOYER/SUPER ADMIN
  */
 export const getUsersWithFilters = async (req, res) => {
   try {

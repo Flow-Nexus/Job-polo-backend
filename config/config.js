@@ -54,6 +54,7 @@ export const actionType = {
   SETPASSWORD: "RESET-PASSWORD",
   FORGOTPASSWORD: "FORGOT-PASSWORD",
   JOBPOST: "JOB-POST",
+  UPDATEJOBPOST: "UPDATE_JOB-POST",
 };
 export const availableActionType = [
   actionType.LOGIN,
@@ -62,6 +63,7 @@ export const availableActionType = [
   actionType.SETPASSWORD,
   actionType.FORGOTPASSWORD,
   actionType.JOBPOST,
+  actionType.UPDATEJOBPOST,
 ];
 
 //for user role
@@ -97,6 +99,7 @@ export const uploadFolderName = {
   EMPLOYEE_IMAGE: "EMPLOYEE_IMAGE",
   SUPER_ADMIN_PORTFOLIO: "SUPER_ADMIN_PORTFOLIO",
   JOB_POST_LOGO: "JOB_POST_LOGO",
+  JOB_UPDATE_LOGO: "JOB_UPDATE_LOGO",
 };
 export const availableUploadFolderName = [
   uploadFolderName.EMPLOYEE_RESUME,
@@ -104,4 +107,33 @@ export const availableUploadFolderName = [
   uploadFolderName.EMPLOYEE_IMAGE,
   uploadFolderName.SUPER_ADMIN_PORTFOLIO,
   uploadFolderName.JOB_POST_LOGO,
+  uploadFolderName.JOB_UPDATE_LOGO,
+];
+
+//for Job Mode
+export const jobMode = {
+  HYBRID: "HYBRID",
+  ON_SITE: "ON_SITE",
+  REMOTE: "REMOTE",
+};
+export const availableJobMode = [
+  jobMode.HYBRID,
+  jobMode.ON_SITE,
+  jobMode.REMOTE,
+];
+
+//for Employment Type
+export const EmploymentType = {
+  FULL_TIME: "FULL_TIME",
+  PART_TIME: "PART_TIME",
+  CONTRACT: "CONTRACT",
+  INTERNSHIP: "INTERNSHIP",
+  FREELANCE: "FREELANCE",
+};
+export const availableEmploymentType = [
+  EmploymentType.FULL_TIME,
+  EmploymentType.PART_TIME,
+  EmploymentType.CONTRACT,
+  EmploymentType.INTERNSHIP,
+  EmploymentType.FREELANCE,
 ];
