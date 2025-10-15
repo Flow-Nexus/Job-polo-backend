@@ -5,6 +5,7 @@ import { employerJwtToken } from "../middleware/employerJwt.js";
 import { upload } from "../cloud/cloudinaryCloudStorage.js";
 import { superAdminJwtToken } from "../middleware/superAdminJwt.js";
 import {
+  applyForJob,
   deleteJob,
   getJobsWithFilter,
   postJob,
@@ -17,14 +18,21 @@ import {
   updateJobValidator,
 } from "../validator/jobValidator.js";
 
-const authRoutes = express.Router();
+const jobRoutes = express.Router();
 
 // COMMON ROUTES
 
 // EMPLOYEE ROUTES
+jobRoutes.post(
+  "/employee/apply-job",
+  upload.fields([{ name: "resumeFiles", maxCount: 1 }]),
+  // validate({ body: postJobValidator }),
+  employeeJwtToken,
+  applyForJob
+);
 
 // EMPLOYER ROUTES
-authRoutes.post(
+jobRoutes.post(
   "/employer/post-job",
   upload.fields([{ name: "logoFiles", maxCount: 1 }]),
   validate({ body: postJobValidator }),
@@ -32,7 +40,7 @@ authRoutes.post(
   postJob
 );
 
-authRoutes.put(
+jobRoutes.put(
   "/employer/update-job/:jobId",
   upload.fields([{ name: "logoFiles", maxCount: 1 }]),
   validate({ body: updateJobValidator }),
@@ -40,13 +48,13 @@ authRoutes.put(
   updateJob
 );
 
-authRoutes.get(
+jobRoutes.get(
   "/employee/get-jobs-with",
   validate({ body: getJobsWithValidator }),
   getJobsWithFilter
 );
 
-authRoutes.delete(
+jobRoutes.delete(
   "/employer/delete-job/:jobId",
   validate({ body: deleteJobValidator }),
   employerJwtToken,
@@ -55,4 +63,4 @@ authRoutes.delete(
 
 // SUPERADMIN ROUTES
 
-export default authRoutes;
+export default jobRoutes;
