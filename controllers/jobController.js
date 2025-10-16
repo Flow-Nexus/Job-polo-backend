@@ -34,22 +34,32 @@ export const postJob = async (req, res) => {
       experienceRange,
       salaryRange,
       mode,
+      companyName,
+      companyEmail,
       addresses,
       employmentType,
       skillsRequired,
       openings,
       deadline,
-      otp,
     } = req.body;
     const jobLogoFiles = req.files?.logoFiles || [];
     const action = actionType.JOBPOST;
 
     // Basic validation
-    if (!title || !description || !addresses) {
+    if (!title || !description || !addresses || !companyName || !companyEmail) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.PARAMETER_MISSING,
         msg: responseMessages.PARAMETER_MISSING,
+      });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(companyEmail)) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "Invalid email format",
       });
     }
 
@@ -92,41 +102,6 @@ export const postJob = async (req, res) => {
       superAdminId = superAdmin.id;
       useremail = superAdmin.user.email;
     }
-
-    // ---------- OTP VERIFICATION ----------
-    const recentOtp = await prismaDB.OTP.findFirst({
-      where: { email: useremail, action },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (!recentOtp) {
-      return actionFailedResponse({
-        res,
-        errorCode: responseFlags.NOT_FOUND,
-        msg: "OTP not found or expired",
-      });
-    }
-
-    if (recentOtp.expiresAt < new Date()) {
-      await prismaDB.OTP.delete({ where: { id: recentOtp.id } });
-      return actionFailedResponse({
-        res,
-        errorCode: responseFlags.BAD_REQUEST,
-        msg: "OTP expired. Please request a new one.",
-      });
-    }
-
-    if (recentOtp.otp !== otp) {
-      await prismaDB.OTP.delete({ where: { id: recentOtp.id } });
-      return actionFailedResponse({
-        res,
-        errorCode: responseFlags.BAD_REQUEST,
-        msg: "Invalid OTP",
-      });
-    }
-
-    // Delete used OTP
-    await prismaDB.OTP.delete({ where: { id: recentOtp.id } });
 
     // ---------- FILE UPLOAD ----------
     let logoUrl = null;
@@ -189,6 +164,8 @@ export const postJob = async (req, res) => {
         logoUrl,
         logoPreviewUrl,
         employmentType,
+        companyName,
+        companyEmail,
         skillsRequired: Array.isArray(skillsRequired)
           ? skillsRequired
           : typeof skillsRequired === "string"
@@ -262,17 +239,27 @@ export const updateJob = async (req, res) => {
       skillsRequired,
       openings,
       deadline,
-      otp,
+      companyEmail,
+      companyName,
       isActive,
     } = req.body;
     const jobLogoFiles = req.files?.logoFiles || [];
     const action = actionType.UPDATEJOBPOST;
 
-    if (!jobId || !title || !addresses) {
+    if (!jobId || !title || !addresses || !companyEmail || !companyName) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.PARAMETER_MISSING,
         msg: responseMessages.PARAMETER_MISSING,
+      });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(companyEmail)) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "Invalid email format",
       });
     }
 
@@ -328,41 +315,6 @@ export const updateJob = async (req, res) => {
       superAdminId = superAdmin.id;
       useremail = superAdmin.user.email;
     }
-
-    // ---------- OTP VERIFICATION ----------
-    const recentOtp = await prismaDB.OTP.findFirst({
-      where: { email: useremail, action },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (!recentOtp) {
-      return actionFailedResponse({
-        res,
-        errorCode: responseFlags.NOT_FOUND,
-        msg: "OTP not found or expired",
-      });
-    }
-
-    if (recentOtp.expiresAt < new Date()) {
-      await prismaDB.OTP.delete({ where: { id: recentOtp.id } });
-      return actionFailedResponse({
-        res,
-        errorCode: responseFlags.BAD_REQUEST,
-        msg: "OTP expired. Please request a new one.",
-      });
-    }
-
-    if (recentOtp.otp !== otp) {
-      await prismaDB.OTP.delete({ where: { id: recentOtp.id } });
-      return actionFailedResponse({
-        res,
-        errorCode: responseFlags.BAD_REQUEST,
-        msg: "Invalid OTP",
-      });
-    }
-
-    // Delete used OTP
-    await prismaDB.OTP.delete({ where: { id: recentOtp.id } });
 
     // ---------- FILE UPLOAD ----------
     let logoUrl = null;
@@ -429,6 +381,8 @@ export const updateJob = async (req, res) => {
         education: education ?? existingJob.education,
         experienceRange: experienceRange ?? existingJob.experienceRange,
         salaryRange: salaryRange ?? existingJob.salaryRange,
+        companyEmail: companyEmail ?? existingJob.companyEmail,
+        companyName: companyName ?? existingJob.companyName,
         mode: mode ?? existingJob.mode,
         employmentType: employmentType ?? existingJob.employmentType,
         openings: openings ? Number(openings) : existingJob.openings,
@@ -654,7 +608,7 @@ export const deleteJob = async (req, res) => {
  */
 export const applyForJob = async (req, res) => {
   try {
-    const employeeIdBy = req.employee_obj_id; 
+    const employeeIdBy = req.employee_obj_id;
     const { jobId, coverLetter } = req.body;
 
     // Validate Input
@@ -713,7 +667,7 @@ export const applyForJob = async (req, res) => {
       });
     }
 
-    // 🔹 5. Create job application
+    // Create job application
     const jobApplication = await prismaDB.JobApplication.create({
       data: {
         jobId,

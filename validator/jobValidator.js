@@ -9,6 +9,14 @@ export const postJobValidator = Joi.object({
   education: Joi.string().allow(""),
   experienceRange: Joi.string().allow(""),
   salaryRange: Joi.string().allow(""),
+  companyName: Joi.string().allow("").required(),
+  companyEmail: Joi.string()
+    .email({ tlds: { allow: false } })
+    .required()
+    .messages({
+      "string.empty": "companyEmail is required",
+      "string.email": "Invalid email format",
+    }),
   mode: Joi.string().valid(...availableJobMode).optional(),
   employmentType: Joi.string()
     .valid(...availableEmploymentType)
@@ -21,17 +29,23 @@ export const postJobValidator = Joi.object({
     .optional(),
   openings: Joi.number().integer().min(1).required(),
   deadline: Joi.date().optional(),
-  otp: Joi.string().length(6).required(),
 });
 
 export const updateJobValidator = Joi.object({
-  otp: Joi.string().length(6).required(),
   title: Joi.string().optional(),
   description: Joi.string().optional(),
   requirements: Joi.string().optional(),
   responsibilities: Joi.string().optional(),
   education: Joi.string().optional(),
   experienceRange: Joi.string().optional(),
+  companyName: Joi.string().required().allow(""),
+  companyEmail: Joi.string()
+      .email({ tlds: { allow: false } })
+      .required()
+      .messages({
+        "string.empty": "companyEmail is required",
+        "string.email": "Invalid email format",
+      }),
   salaryRange: Joi.string().optional(),
   mode: Joi.string().valid(...availableJobMode).optional(),
   employmentType: Joi.string()

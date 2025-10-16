@@ -272,6 +272,8 @@ model Job {
   education        String?
   experienceRange  String?
   salaryRange      String?
+  companyName      String
+  companyEmail     String
   mode             JobMode?
   employmentType   EmploymentType?
   skillsRequired   String[]
