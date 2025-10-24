@@ -5,12 +5,15 @@ import {
 } from "../config/common.js";
 import {
   actionType,
+  ApplicationStatus,
+  availableApplicationStatus,
   responseFlags,
   responseMessages,
   uploadFolderName,
 } from "../config/config.js";
 import { processUploadedFiles } from "../cloud/cloudHelper.js";
 import { deleteFileFromCloudinary } from "../cloud/cloudinaryCloudStorage.js";
+import { application } from "express";
 
 /**
  * @desc Job Post by Employer and Super Admin
@@ -43,7 +46,6 @@ export const postJob = async (req, res) => {
       deadline,
     } = req.body;
     const jobLogoFiles = req.files?.logoFiles || [];
-    const action = actionType.JOBPOST;
 
     // Basic validation
     if (!title || !description || !addresses || !companyName || !companyEmail) {
@@ -609,7 +611,11 @@ export const deleteJob = async (req, res) => {
 export const applyForJob = async (req, res) => {
   try {
     const employeeIdBy = req.employee_obj_id;
-    const { jobId, coverLetter } = req.body;
+    const appliedBy = req.employeeDetails;
+    const { jobId, howFitRole } = req.body;
+
+    const resumeFiles = req.files?.resumeFiles || [];
+    const workSampleFiles = req.files?.workSampleFiles || [];
 
     // Validate Input
     if (!jobId) {
@@ -625,7 +631,6 @@ export const applyForJob = async (req, res) => {
       where: { userId: employeeIdBy },
       include: { user: true },
     });
-
     if (!employee) {
       return actionFailedResponse({
         res,
@@ -633,6 +638,8 @@ export const applyForJob = async (req, res) => {
         msg: "Employee record not found.",
       });
     }
+
+    const userEmail = employee.user.email;
 
     // Verify job existence and status
     const job = await prismaDB.Job.findUnique({
@@ -656,39 +663,171 @@ export const applyForJob = async (req, res) => {
       where: {
         jobId,
         employeeId: employee.id,
+        is_active: true,
       },
     });
-
     if (alreadyApplied) {
       return actionFailedResponse({
         res,
-        errorCode: responseFlags.ALREADY_EXISTS,
+        errorCode: responseFlags.CONFLICT,
         msg: "You have already applied for this job.",
       });
     }
 
-    // Create job application
-    const jobApplication = await prismaDB.JobApplication.create({
-      data: {
+    // ---------- FILE UPLOAD ----------
+    let resumeUrls = [];
+    let resumePreviewUrls = [];
+    let workSampleUrls = [];
+    let workSamplePreviewUrls = [];
+
+    // Handle Resume Upload or Fallback
+    if (resumeFiles.length > 0) {
+      // Upload new resume(s)
+      const resumeResults = await processUploadedFiles(
+        resumeFiles,
+        uploadFolderName.EMPLOYEE_RESUME,
+        userEmail
+      );
+      resumeUrls = resumeResults.imageUrlsArray;
+      resumePreviewUrls = resumeResults.previewUrlsArray;
+
+      // Update employee profile with latest resume (optional)
+      await prismaDB.Employee.update({
+        where: { id: employee.id },
+        data: {
+          resumeUrls: [...(employee.resumeUrls || []), ...resumeUrls],
+          resumePreviewUrls: [
+            ...(employee.resumePreviewUrls || []),
+            ...resumePreviewUrls,
+          ],
+        },
+      });
+    } else if (employee.resumeUrls && employee.resumeUrls.length > 0) {
+      // Use last uploaded resume
+      resumeUrls = [employee.resumeUrls[employee.resumeUrls.length - 1]];
+      resumePreviewUrls = [
+        employee.resumePreviewUrls[employee.resumePreviewUrls.length - 1],
+      ];
+    } else {
+      // No resume available at all
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.PARAMETER_MISSING,
+        msg: "Resume is required to apply for this job.",
+      });
+    }
+
+    // Handle Work Sample Upload or Fallback
+    if (workSampleFiles.length > 0) {
+      const workSampleResults = await processUploadedFiles(
+        workSampleFiles,
+        uploadFolderName.EMPLOYEE_WORK_SAMPLE,
+        userEmail
+      );
+      workSampleUrls = workSampleResults.imageUrlsArray;
+      workSamplePreviewUrls = workSampleResults.previewUrlsArray;
+
+      // Update employee work sample history (optional)
+      await prismaDB.Employee.update({
+        where: { id: employee.id },
+        data: {
+          workSampleUrls: [
+            ...(employee.workSampleUrls || []),
+            ...workSampleUrls,
+          ],
+          workSamplePreviewUrls: [
+            ...(employee.workSamplePreviewUrls || []),
+            ...workSamplePreviewUrls,
+          ],
+        },
+      });
+    } else if (employee.workSampleUrls && employee.workSampleUrls.length > 0) {
+      // Use last uploaded work sample
+      workSampleUrls = [
+        employee.workSampleUrls[employee.workSampleUrls.length - 1],
+      ];
+      workSamplePreviewUrls = [
+        employee.workSamplePreviewUrls[
+          employee.workSamplePreviewUrls.length - 1
+        ],
+      ];
+    } else {
+      // No work sample — allowed
+      workSampleUrls = null;
+      workSamplePreviewUrls = null;
+    }
+
+    // Check if a withdrawn application exists
+    const withdrawnApplication = await prismaDB.JobApplication.findFirst({
+      where: {
         jobId,
         employeeId: employee.id,
-        coverLetter: coverLetter || null,
-        appliedBy: employee.user.email,
-      },
-      include: {
-        job: {
-          include: {
-            employer: true,
-            superAdmin: true,
-          },
-        },
+        is_active: false,
       },
     });
 
-    // 🔹 6. Success Response
+    let jobApplication;
+    let msg;
+
+    if (withdrawnApplication) {
+      // Reactivate withdrawn application
+      jobApplication = await prismaDB.JobApplication.update({
+        where: { id: withdrawnApplication.id },
+        data: {
+          is_active: true,
+          status: ApplicationStatus.RE_APPLIED,
+          appliedBy: appliedBy,
+          howFitRole: howFitRole || null,
+          statusReason: "Re-Applied application successfully after withdrawal",
+          resumeUrls,
+          resumePreviewUrls,
+          workSampleUrls,
+          workSamplePreviewUrls,
+        },
+        include: {
+          job: {
+            include: {
+              // employer: true,
+              // superAdmin: true,
+              jobPostAddresses: true,
+            },
+          },
+        },
+      });
+      msg = "Job application Re-Applied successfully!";
+    } else {
+      // Create new application
+      jobApplication = await prismaDB.JobApplication.create({
+        data: {
+          jobId,
+          status: ApplicationStatus.APPLIED,
+          employeeId: employee.id,
+          userId: employeeIdBy,
+          statusReason: "Applied the application successfully",
+          howFitRole: howFitRole || null,
+          appliedBy: appliedBy,
+          resumeUrls,
+          resumePreviewUrls,
+          workSampleUrls,
+          workSamplePreviewUrls,
+        },
+        include: {
+          job: {
+            include: {
+              // employer: true,
+              // superAdmin: true,
+              jobPostAddresses: true,
+            },
+          },
+        },
+      });
+      msg = "Job application submitted successfully!";
+    }
+
+    // Success Response
     return actionCompleteResponse({
       res,
-      msg: "Job application submitted successfully!",
+      msg,
       data: { jobApplication },
     });
   } catch (error) {
@@ -697,6 +836,376 @@ export const applyForJob = async (req, res) => {
       res,
       errorCode: responseFlags.ACTION_FAILED,
       msg: error.message || "Server error while applying for job.",
+    });
+  }
+};
+
+/**
+ * @desc Withdraw Job Application by Employee
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @return {Object} JSON response with success or error message
+ * @route POST /api/v1/job/employee/withraw-job
+ * @access Employee
+ */
+export const withdrawJobApplication = async (req, res) => {
+  try {
+    const employeeId = req.employee_obj_id;
+    const withdraw = req.employeeDetails;
+    const { applicationId, reason } = req.query;
+
+    if (!applicationId || !reason) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.PARAMETER_MISSING,
+        msg: responseMessages.PARAMETER_MISSING,
+      });
+    }
+
+    // Fetch the job application
+    const jobApplication = await prismaDB.JobApplication.findUnique({
+      where: { id: applicationId },
+      include: { job: { include: { jobPostAddresses: true } } },
+    });
+
+    if (!jobApplication || !jobApplication.is_active) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.NOT_FOUND,
+        msg: "Job application not found or already withdrawn",
+      });
+    }
+
+    // Ensure the employee owns this application
+    if (jobApplication.userId !== employeeId) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.UNAUTHORIZED,
+        msg: "You are not authorized to withdraw this application",
+      });
+    }
+
+    // Only allow withdrawal if job is active
+    if (!jobApplication.job.is_active) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "Cannot withdraw application because the job is no longer active",
+      });
+    }
+
+    // Mark as withdrawn
+    const withdrawnApplication = await prismaDB.JobApplication.update({
+      where: { id: applicationId },
+      data: {
+        is_active: false,
+        status: ApplicationStatus.WITHDRAW,
+        statusReason: reason,
+        withdrawBy: withdraw,
+      },
+      include: { job: { include: { jobPostAddresses: true } } },
+    });
+
+    const msg = "Job application withdrawn successfully";
+    return actionCompleteResponse({
+      res,
+      msg,
+      data: { withdrawnApplication },
+    });
+  } catch (error) {
+    console.error("Error withdrawing job application:", error);
+    return actionFailedResponse({
+      res,
+      errorCode: responseFlags.ACTION_FAILED,
+      msg: error.message || "Server error while withdrawing application",
+    });
+  }
+};
+
+/**
+ * @desc Job Apllication Status Change by Employer and Super Admin
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @return {Object} JSON response with success or error message
+ * @route POST /api/v1/job/employer/update-job-application-status
+ * @access Employer/Super Admin
+ */
+export const updateJobApplicationStatus = async (req, res) => {
+  try {
+    const { applicationId, newStatus, reason } = req.body;
+    const updatedBy = req.employeeDetails || req.superAdminDetails;
+
+    // Validate required parameters
+    if (!applicationId || !newStatus) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.PARAMETER_MISSING,
+        msg: responseMessages.PARAMETER_MISSING,
+      });
+    }
+
+    // Find the application
+    const application = await prismaDB.JobApplication.findUnique({
+      where: { id: applicationId },
+      include: { job: { include: { jobPostAddresses: true } } },
+    });
+
+    if (!application) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.NOT_FOUND,
+        msg: "Job application not found",
+      });
+    }
+
+    // prevent updating withdrawn or inactive applications
+    if (!application.is_active) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.CONFLICT,
+        msg: "Cannot update status of inactive or withdrawn application",
+      });
+    }
+
+    // Update application status
+    const updatedApplication = await prismaDB.JobApplication.update({
+      where: { id: applicationId },
+      data: {
+        status: newStatus,
+        statusReason: reason || null,
+        updatedBy,
+      },
+      include: {
+        job: { include: { jobPostAddresses: true } },
+      },
+    });
+
+    const msg = `Job application status updated to ${newStatus}`;
+    return actionCompleteResponse({
+      res,
+      msg,
+      data: { updatedApplication },
+    });
+  } catch (error) {
+    console.error("Error updating job application status:", error);
+    return actionFailedResponse({
+      res,
+      errorCode: responseFlags.ACTION_FAILED,
+      msg: error.message || "Server error while updating status",
+    });
+  }
+};
+
+/**
+ * @desc Get Active Job Apllication
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @return {Object} JSON response with success or error message
+ * @route POST /api/v1/job/employer/get-active-job-applications/:jobId
+ * @access Employer/Super Admin
+ */
+export const getActiveJobApplications = async (req, res) => {
+  try {
+    const {
+      jobId,
+      employeeId,
+      status, // filter by ApplicationStatus
+      appliedBy, // who applied
+      startDate, // filter applications from this date
+      endDate, // filter applications until this date
+      search, // text search on employee name or job title
+      page = 1,
+      limit = 20,
+      sortBy = "createdAt",
+      order = "desc",
+    } = req.query;
+
+    const filters = { is_active: true };
+
+    if (jobId) filters.jobId = jobId;
+    if (employeeId) filters.employeeId = employeeId;
+    if (status) filters.status = status;
+    if (appliedBy) filters.appliedBy = appliedBy;
+
+    // Date filter
+    if (startDate || endDate) {
+      filters.createdAt = {};
+      if (startDate) filters.createdAt.gte = new Date(startDate);
+      if (endDate) filters.createdAt.lte = new Date(endDate);
+    }
+
+    // Pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const take = parseInt(limit);
+
+    // Search filter (on employee name or job title)
+    const searchFilter = search
+      ? {
+          OR: [
+            {
+              employee: {
+                user: { name: { contains: search, mode: "insensitive" } },
+              },
+            },
+            { job: { title: { contains: search, mode: "insensitive" } } },
+          ],
+        }
+      : {};
+
+    // Fetch from DB
+    const jobApplications = await prismaDB.JobApplication.findMany({
+      where: {
+        ...filters,
+        ...searchFilter,
+      },
+      include: {
+        employee: { include: { user: true } },
+        job: {
+          include: {
+            employer: { include: { user: true } },
+            jobPostAddresses: true,
+          },
+        },
+      },
+      skip,
+      take,
+      orderBy: { [sortBy]: order },
+    });
+
+    // Total count for pagination
+    const total = await prismaDB.JobApplication.count({
+      where: {
+        ...filters,
+        ...searchFilter,
+      },
+    });
+
+    return actionCompleteResponse({
+      res,
+      msg: "Job applications fetched successfully",
+      data: {
+        jobApplications,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching job applications:", error);
+    return actionFailedResponse({
+      res,
+      errorCode: responseFlags.ACTION_FAILED,
+      msg: error.message || "Server error while fetching job applications",
+    });
+  }
+};
+
+/**
+ * @desc Get Job Apllication
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @return {Object} JSON response with success or error message
+ * @route POST /api/v1/job/super-admin/get-all-job-applications
+ * @access Super Admin
+ */
+export const getAllJobApplications = async (req, res) => {
+  try {
+    const {
+      jobId,
+      employeeId,
+      status, // filter by ApplicationStatus
+      appliedBy, // who applied
+      startDate, // filter applications from this date
+      endDate, // filter applications until this date
+      search, // text search on employee name or job title
+      page = 1,
+      limit = 20,
+      sortBy = "createdAt",
+      order = "desc",
+    } = req.query;
+
+    const filters = {};
+
+    if (jobId) filters.jobId = jobId;
+    if (employeeId) filters.employeeId = employeeId;
+    if (status) filters.status = status;
+    if (appliedBy) filters.appliedBy = appliedBy;
+
+    // Date filter
+    if (startDate || endDate) {
+      filters.createdAt = {};
+      if (startDate) filters.createdAt.gte = new Date(startDate);
+      if (endDate) filters.createdAt.lte = new Date(endDate);
+    }
+
+    // Pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const take = parseInt(limit);
+
+    // Search filter (on employee name or job title)
+    const searchFilter = search
+      ? {
+          OR: [
+            {
+              employee: {
+                user: { name: { contains: search, mode: "insensitive" } },
+              },
+            },
+            { job: { title: { contains: search, mode: "insensitive" } } },
+          ],
+        }
+      : {};
+
+    // Fetch from DB
+    const jobApplications = await prismaDB.JobApplication.findMany({
+      where: {
+        ...filters,
+        ...searchFilter,
+      },
+      include: {
+        employee: { include: { user: true } },
+        job: {
+          include: {
+            employer: { include: { user: true } },
+            jobPostAddresses: true,
+          },
+        },
+      },
+      skip,
+      take,
+      orderBy: { [sortBy]: order },
+    });
+
+    // Total count for pagination
+    const total = await prismaDB.JobApplication.count({
+      where: {
+        ...filters,
+        ...searchFilter,
+      },
+    });
+
+    return actionCompleteResponse({
+      res,
+      msg: "Job applications fetched successfully",
+      data: {
+        jobApplications,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching job applications:", error);
+    return actionFailedResponse({
+      res,
+      errorCode: responseFlags.ACTION_FAILED,
+      msg: error.message || "Server error while fetching job applications",
     });
   }
 };

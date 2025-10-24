@@ -7,15 +7,22 @@ import { superAdminJwtToken } from "../middleware/superAdminJwt.js";
 import {
   applyForJob,
   deleteJob,
+  getAllJobApplications,
   getJobsWithFilter,
   postJob,
   updateJob,
+  updateJobApplicationStatus,
+  withdrawJobApplication,
 } from "../controllers/jobController.js";
 import {
+  applyForJobValidator,
   deleteJobValidator,
+  getJobApplicationsValidator,
   getJobsWithValidator,
   postJobValidator,
+  updateJobApplicationStatusValidator,
   updateJobValidator,
+  withdrawJobApplicationValidator,
 } from "../validator/jobValidator.js";
 
 const jobRoutes = express.Router();
@@ -25,10 +32,20 @@ const jobRoutes = express.Router();
 // EMPLOYEE ROUTES
 jobRoutes.post(
   "/employee/apply-job",
-  upload.fields([{ name: "resumeFiles", maxCount: 1 }]),
-  // validate({ body: postJobValidator }),
+  upload.fields([
+    { name: "resumeFiles", maxCount: 1 },
+    { name: "workSampleFiles", maxCount: 1 }
+  ]),
+  validate({ body: applyForJobValidator}),
   employeeJwtToken,
   applyForJob
+);
+
+jobRoutes.post(
+  "/employee/withdraw-job-application",
+  validate({ body: withdrawJobApplicationValidator }),
+  employeeJwtToken,
+  withdrawJobApplication
 );
 
 // EMPLOYER ROUTES
@@ -61,6 +78,27 @@ jobRoutes.delete(
   deleteJob
 );
 
+jobRoutes.post(
+  "/employer/update-job-application-status",
+  validate({ body: updateJobApplicationStatusValidator }),
+  employerJwtToken,
+  updateJobApplicationStatus
+);
+
+jobRoutes.get(
+  "/employer/get-active-job-applications/:jobId",
+  validate({ body: getJobApplicationsValidator }),
+  employerJwtToken,
+  updateJobApplicationStatus
+);
+
 // SUPERADMIN ROUTES
+jobRoutes.get(
+  "/super-admin/get-all-job-applications",
+  validate({ body: getJobApplicationsValidator }),
+  superAdminJwtToken,
+  getAllJobApplications
+);
 
 export default jobRoutes;
+

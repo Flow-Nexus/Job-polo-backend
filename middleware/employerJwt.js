@@ -2,7 +2,7 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import { actionFailedResponse } from "../config/common.js";
 import prismaDB from "../utlis/prisma.js";
-import { roleType } from "../config/config.js";
+import { responseFlags, roleType } from "../config/config.js";
 
 dotenv.config();
 

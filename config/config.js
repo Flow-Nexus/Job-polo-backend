@@ -142,6 +142,8 @@ export const availableEmploymentType = [
 export const ApplicationStatus = {
   PENDING: "PENDING",
   APPLIED: "APPLIED",
+  WITHDRAW: "WITHDRAW",
+  RE_APPLIED: "RE_APPLIED",
   REJECTED: "REJECTED",
   RESUMEVIEWED: "RESUME_VIEWED",
   WAITINGEMPLOYERACTION: "WAITING_EMPLOYER_ACTION",
@@ -152,6 +154,8 @@ export const ApplicationStatus = {
 export const availableApplicationStatus = [
   ApplicationStatus.PENDING,
   ApplicationStatus.APPLIED,
+  ApplicationStatus.WITHDRAW,
+  ApplicationStatus.RE_APPLIED,
   ApplicationStatus.REJECTED,
   ApplicationStatus.RESUMEVIEWED,
   ApplicationStatus.WAITINGEMPLOYERACTION,

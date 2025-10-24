@@ -39,11 +39,13 @@ enum AuthProvider {
 enum ApplicationStatus {
   PENDING
   APPLIED
+  WITHDRAW
+  RE_APPLIED
   REJECTED
-  RESUMEVIEWED
-  WAITINGEMPLOYERACTION
-  APPLICATIONSEND
-  CONTACTVIEW
+  RESUME_VIEWED
+  WAITING_EMPLOYER_ACTION
+  APPLICATION_SEND
+  CONTACT_VIEW
   SELECTED
 }
 
@@ -178,7 +180,7 @@ model Employee {
   viewedJobs   ViewedJob[]
 }
 
-// ---------------- Employer (Company / Recruiter) ----------------
+// -------------- Employer (Company / Recruiter) ---------------
 model Employer {
   id                         String   @id @default(uuid())
   userId                     String   @unique
@@ -302,16 +304,23 @@ model Job {
 
 // ---------------- Job Applications ----------------
 model JobApplication {
-  id          String            @id @default(uuid())
-  coverLetter String?
-  status      ApplicationStatus @default(PENDING)
-  jobId       String
-  employeeId  String
-  is_active   Boolean           @default(true)
+  id                    String            @id @default(uuid())
+  status                ApplicationStatus @default(PENDING)
+  jobId                 String
+  employeeId            String
+  userId                String?
+  howFitRole            String?
+  statusReason          String?
+  resumeUrls            String[]          @default([])
+  resumePreviewUrls     String[]          @default([])
+  workSampleUrls        String[]          @default([])
+  workSamplePreviewUrls String[]          @default([])
+  is_active             Boolean           @default(true)
 
-  appliedAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  appliedBy String?
+  appliedAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  appliedBy  String?
+  withdrawBy String?
   updatedBy String?
 
   job      Job      @relation(fields: [jobId], references: [id])
