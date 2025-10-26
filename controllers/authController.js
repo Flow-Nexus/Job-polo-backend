@@ -1193,7 +1193,7 @@ export const superAdminRegister = async (req, res) => {
       otp,
     } = req.body;
 
-    const action = actionType.SUPER_ADMIN_REGISTER;
+    const action = actionType.SUPERADMINREGISTER;
     const portfolioFiles = req.files?.portfolioFiles || [];
 
     // --------- 1. Required Checks ----------
