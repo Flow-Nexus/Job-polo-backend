@@ -74,8 +74,9 @@ export const postJob = async (req, res) => {
       // EMPLOYER POSTING
       const employer = await prismaDB.Employer.findUnique({
         where: { userId: employeeIdBy },
+        include: { user: true },
       });
-      console.log("employer", employer);
+      // console.log("employer", employer);
       if (!employer) {
         return actionFailedResponse({
           res,
