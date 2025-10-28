@@ -83,8 +83,8 @@ export const postJob = async (req, res) => {
           msg: "Employer record not found for this user.",
         });
       }
-      employerId = employer.id;
-      useremail = employer.user.email;
+      employerId = employer?.id;
+      useremail = employer?.user?.email;
     }
 
     if (superAdminIdBy) {
@@ -101,8 +101,8 @@ export const postJob = async (req, res) => {
           msg: "Super Admin record not found for this user.",
         });
       }
-      superAdminId = superAdmin.id;
-      useremail = superAdmin.user.email;
+      superAdminId = superAdmin?.id;
+      useremail = superAdmin?.user?.email;
     }
 
     // ---------- FILE UPLOAD ----------
