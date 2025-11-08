@@ -78,6 +78,8 @@ export const getJobsWithValidator = Joi.object({
   state: Joi.string().optional(),
   country: Joi.string().optional(),
   pincode: Joi.number().optional(),
+  userId: Joi.string().optional(),
+  is_active: Joi.boolean().optional(),
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(10),
 });

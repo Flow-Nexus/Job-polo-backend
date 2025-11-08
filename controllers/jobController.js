@@ -455,15 +455,26 @@ export const getJobsWithFilter = async (req, res) => {
       city,
       pincode,
       state,
+      userId,
       country,
       page,
       limit,
+      is_active,
     } = req.query;
 
-    // Convert pagination params
-    const skip = (Number(page) - 1) * Number(limit);
-    const take = Number(limit);
+    // Convert pagination params safely
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
+    const take = limitNum;
 
+    // Convert is_active to Boolean if provided
+    const isActiveBool =
+      typeof is_active === "string"
+        ? is_active.toLowerCase() === "true"
+        : undefined;
+
+    // Construct where conditions
     const where = {
       AND: [
         search
@@ -496,6 +507,14 @@ export const getJobsWithFilter = async (req, res) => {
               },
             }
           : {},
+        // Filter by User ID (matches either Employer.userId )
+        userId
+          ? {
+              OR: [{ employer: { userId } }, { superAdmin: { userId } }],
+            }
+          : {},
+        // Filter by job active status
+        isActiveBool !== undefined ? { is_active: isActiveBool } : {},
       ],
     };
 
@@ -505,8 +524,12 @@ export const getJobsWithFilter = async (req, res) => {
       take,
       include: {
         jobPostAddresses: true,
-        employer: true,
-        superAdmin: true,
+        employer: {
+          include: { user: true },
+        },
+        superAdmin: {
+          include: { user: true },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -517,7 +540,7 @@ export const getJobsWithFilter = async (req, res) => {
     return actionCompleteResponse({
       res,
       msg,
-      data: { page, limit, total, jobs },
+      data: { page: pageNum, limit: limitNum, total, jobs },
     });
   } catch (error) {
     console.error("Error fetching jobs:", error);
