@@ -93,7 +93,8 @@ export const sendOTP = async (req, res) => {
     await sendOTPVerification({
       email: newOTP.email,
       otp: newOTP.otp,
-      expireOtp: expiresAt,
+      expireOtp: expiresAt.toLocaleString(),
+      otpAction: action,
     });
 
     const msg = `OTP for ${action} sent successfully!`;
