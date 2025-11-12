@@ -11,6 +11,9 @@ const transporter = nodemailer.createTransport({
   host: "smtpout.secureserver.net",
   port: 465, // use 465 for SSL or 587 for TLS
   secure: true, // true for port 465, false for port 587
+  pool: true,
+  maxConnections: 5,
+  maxMessages: 100,
   auth: {
     user: process.env.JOBPOLO_COMPANY_EMAIL,
     pass: process.env.JOBPOLO_COMPANY_EMAIL_PASSWORD,

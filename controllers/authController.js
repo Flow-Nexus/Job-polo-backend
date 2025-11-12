@@ -33,7 +33,6 @@ export const sendOTP = async (req, res) => {
     const action = req.query.action;
 
     // Validate input
-    // const validActions = [...availableActionType];
     if (!email || !action || !availableActionType.includes(action)) {
       return actionFailedResponse({
         res,
@@ -61,23 +60,21 @@ export const sendOTP = async (req, res) => {
     // Generate unique OTP
     let otp;
     let existingOTP;
-
     do {
       otp = otpGenerator.generate(6, {
         upperCaseAlphabets: true,
         specialChars: false,
         lowerCaseAlphabets: false,
       });
-
       existingOTP = await prismaDB.oTP.findFirst({ where: { otp } });
     } while (existingOTP);
 
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes from now
 
     // Delete expired OTPs
-    await prismaDB.OTP.deleteMany({
+    prismaDB.OTP.deleteMany({
       where: { expiresAt: { lt: new Date() } },
-    });
+    }).catch(console.error);
 
     // Store OTP
     const newOTP = await prismaDB.OTP.create({
@@ -90,12 +87,12 @@ export const sendOTP = async (req, res) => {
     });
 
     // Send OTP via email or mobile
-    await sendOTPVerification({
+    sendOTPVerification({
       email: newOTP.email,
       otp: newOTP.otp,
       expireOtp: expiresAt.toLocaleString(),
       otpAction: action,
-    });
+    }).catch(console.error);
 
     const msg = `OTP for ${action} sent successfully!`;
     return actionCompleteResponse({
@@ -108,7 +105,7 @@ export const sendOTP = async (req, res) => {
     return actionFailedResponse({
       res,
       errorCode: responseFlags.ACTION_FAILED,
-      message: error.message || "Error sending OTP!",
+      msg: error.message || "Error sending OTP!",
     });
   }
 };
