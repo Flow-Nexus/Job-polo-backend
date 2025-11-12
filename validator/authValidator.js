@@ -145,7 +145,7 @@ export const loginValidator = Joi.object({
 
   otp: Joi.string()
     .length(6)
-    .pattern(/^[0-9]+$/)
+    .pattern(/^[A-Z0-9]+$/i)
     .when("googleToken", {
       is: Joi.exist(),
       then: Joi.optional(),

@@ -72,7 +72,7 @@ export const sendOTP = async (req, res) => {
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes from now
 
     // Delete expired OTPs
-    prismaDB.OTP.deleteMany({
+    await prismaDB.OTP.deleteMany({
       where: { expiresAt: { lt: new Date() } },
     }).catch(console.error);
 
