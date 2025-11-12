@@ -87,7 +87,7 @@ export const sendOTP = async (req, res) => {
     });
 
     // Send OTP via email or mobile
-    sendOTPVerification({
+    await sendOTPVerification({
       email: newOTP.email,
       otp: newOTP.otp,
       expireOtp: expiresAt.toLocaleString(),
