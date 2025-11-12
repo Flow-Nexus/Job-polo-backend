@@ -1304,7 +1304,7 @@ export const superAdminRegister = async (req, res) => {
     if (dob) {
       formattedDob = new Date(dob); // Works fine for "2001-09-29"
       if (isNaN(formattedDob.getTime())) {
-        formattedDob = null; 
+        formattedDob = null;
       }
     }
 
@@ -1410,8 +1410,8 @@ export const getUsersWithFilters = async (req, res) => {
       industry,
       functionArea,
       search,
-      page = 1,
-      limit = 20,
+      page,
+      limit,
     } = req.query;
 
     // Convert pagination params
@@ -1483,6 +1483,95 @@ export const getUsersWithFilters = async (req, res) => {
       res,
       errorCode: responseFlags.ACTION_FAILED,
       msg: error.message || "Error fetching users.",
+    });
+  }
+};
+
+/**
+ * @desc Get User With ID
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @return {Object} JSON response with success or error message
+ * @route GET /api/v1/auth/employee/get-user-profile/:userId
+ * @access PUBLIC
+ */
+export const getUserByID = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.INVALID_REQUEST,
+        msg: "User ID is required in URL.",
+      });
+    }
+
+    const user = await prismaDB.User.findUnique({
+      where: { id: userId },
+      include: {
+        address: true,
+        employee: true,
+        employer: true,
+        superAdmin: true,
+      },
+    });
+
+    if (!user) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.NOT_FOUND,
+        msg: "User not found.",
+      });
+    }
+
+    // Filter out unrelated role data
+    let roleSpecificData = {};
+
+    switch (user.role) {
+      case roleType.EMPLOYEE:
+        roleSpecificData = { employee: user.employee };
+        break;
+      case roleType.EMPLOYER:
+        roleSpecificData = { employer: user.employer };
+        break;
+      case roleType.SUPER_ADMIN:
+        roleSpecificData = { superAdmin: user.superAdmin };
+        break;
+      default:
+        roleSpecificData = {};
+    }
+
+    // Build clean response object
+    const filteredUser = {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      countryCode: user.countryCode,
+      mobileNumber: user.mobileNumber,
+      alternativeMobileNumber: user.alternativeMobileNumber,
+      role: user.role,
+      authProvider: user.authProvider,
+      is_active: user.is_active,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      address: user.address,
+      ...roleSpecificData,
+    };
+
+    const msg =  "User data fetched successfully.";
+    return actionCompleteResponse({
+      res,
+      msg,
+      data: { filteredUser },
+    });
+  } catch (error) {
+    console.error("Error in getUserByToken:", error);
+    return actionFailedResponse({
+      res,
+      errorCode: responseFlags.ACTION_FAILED,
+      msg: error.message || "Error fetching user data.",
     });
   }
 };

@@ -136,13 +136,11 @@ export const loginValidator = Joi.object({
     then: Joi.optional(),
     otherwise: Joi.required(),
   }),
-
   password: Joi.string().min(6).when("googleToken", {
     is: Joi.exist(),
     then: Joi.optional(),
     otherwise: Joi.optional(),
   }),
-
   otp: Joi.string()
     .length(6)
     .pattern(/^[A-Z0-9]+$/i)
@@ -151,7 +149,6 @@ export const loginValidator = Joi.object({
       then: Joi.optional(),
       otherwise: Joi.optional(),
     }),
-
   googleToken: Joi.string().optional(),
 })
   .or("googleToken", "password", "otp")
@@ -263,4 +260,8 @@ export const getUsersWithValidator = Joi.object({
   search: Joi.string().optional(),
   page: Joi.number().integer().min(1).optional(),
   limit: Joi.number().integer().min(1).max(100).optional(),
+});
+
+export const getUserWithIdValidator = Joi.object({
+  userId: Joi.string().required(),
 });

@@ -3,6 +3,7 @@ import {
   employeeRegister,
   employerRegister,
   forgotPassword,
+  getUserByID,
   getUsersWithFilters,
   login,
   resetPassword,
@@ -17,6 +18,7 @@ import {
   employerRegisterValidator,
   forgotPasswordValidator,
   getUsersWithValidator,
+  getUserWithIdValidator,
   loginValidator,
   resetPasswordValidator,
   sendOTPValidator,
@@ -44,6 +46,11 @@ authRoutes.post(
   "/employee/forgot-password",
   validate({ body: forgotPasswordValidator }),
   forgotPassword
+);
+authRoutes.get(
+  "/employee/get-user-profile/:userId",
+  validate({ body: getUserWithIdValidator }),
+  getUserByID
 );
 
 //EMPLOYEE ROUTES

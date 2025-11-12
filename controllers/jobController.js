@@ -44,11 +44,19 @@ export const postJob = async (req, res) => {
       skillsRequired,
       openings,
       deadline,
+      // categoryId,
     } = req.body;
     const jobLogoFiles = req.files?.logoFiles || [];
 
     // Basic validation
-    if (!title || !description || !addresses || !companyName || !companyEmail) {
+    if (
+      !title ||
+      !description ||
+      !addresses ||
+      !companyName ||
+      !companyEmail
+      // !categoryId
+    ) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.PARAMETER_MISSING,
@@ -169,6 +177,7 @@ export const postJob = async (req, res) => {
         employmentType,
         companyName,
         companyEmail,
+        // categoryId,
         skillsRequired: Array.isArray(skillsRequired)
           ? skillsRequired
           : typeof skillsRequired === "string"

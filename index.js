@@ -5,6 +5,7 @@ import { PrismaClient } from "./generated/prisma/index.js";
 import authRoutes from "./routes/authRoutes.js";
 import jobRoutes from "./routes/jobRoutes.js";
 import { actionCompleteResponse } from "./config/common.js";
+import categoryRoutes from "./routes/categoryRoutes.js";
 // import { createServer } from "http";
 // import { Server } from "socket.io";
 
@@ -41,6 +42,7 @@ prisma
 //Routes
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/job", jobRoutes);
+app.use("/api/v1/category", categoryRoutes);
 
 // Local dev server
 if (process.env.NODE_ENV !== "production") {
