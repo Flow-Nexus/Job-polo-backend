@@ -1,5 +1,16 @@
-import { actionFailedResponse } from "../config/common.js";
-import { responseFlags, responseMessages } from "../config/config.js";
+import {
+  processUploadedFiles,
+  updateFileHelper,
+} from "../cloud/cloudHelper.js";
+import {
+  actionCompleteResponse,
+  actionFailedResponse,
+} from "../config/common.js";
+import {
+  responseFlags,
+  responseMessages,
+  uploadFolderName,
+} from "../config/config.js";
 import prismaDB from "../utlis/prisma.js";
 
 /**
@@ -13,7 +24,7 @@ import prismaDB from "../utlis/prisma.js";
 export const addCategory = async (req, res) => {
   try {
     let { name, description } = req.body;
-    const createdBy = req.superAdmin_obj_id;
+    const userId = req.superAdminDetails || req.superAdmin_obj_id;
     const categoryFiles = req.files?.categoryFile || [];
 
     // 1. Check if name is provided
@@ -26,14 +37,14 @@ export const addCategory = async (req, res) => {
     }
 
     // 2.remove all spaces and convert to uppercase
-    name = name.replace(/\s+/g, "").toUpperCase();
+    name = name.toUpperCase();
 
-    // 3. Validate: only A–Z letters allowed
-    if (!/^[A-Z]+$/.test(name)) {
+    // 3. Validate: only A–Z letters and spaces allowed
+    if (!/^[A-Z ]+$/.test(name)) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.BAD_REQUEST,
-        msg: "Category name must contain only capital letters A-Z (no numbers, symbols, or spaces).",
+        msg: "Category name must contain only capital letters A-Z and spaces.",
       });
     }
 
@@ -56,8 +67,8 @@ export const addCategory = async (req, res) => {
     if (categoryFiles.length > 0) {
       const categoryResults = await processUploadedFiles(
         categoryFiles,
-        uploadFolderName.JOB_POST_LOGO,
-        useremail
+        uploadFolderName.CATEGORY_LOGO,
+        name
       );
       categoryUrls = categoryResults.categoryUrls?.[0] || null;
       categoryPreviewUrls = categoryResults.categoryPreviewUrls?.[0] || null;
@@ -68,8 +79,7 @@ export const addCategory = async (req, res) => {
       data: {
         name,
         description,
-        isActive: true,
-        createdBy,
+        createdBy: userId,
         categoryUrls,
         categoryPreviewUrls,
       },
@@ -123,7 +133,7 @@ export const getCategory = async (req, res) => {
     return actionCompleteResponse({
       res,
       msg,
-      data: { categories },
+      data: { categoryCount: categories.length, categories },
     });
   } catch (error) {
     console.error("Error fetching categories:", error);
@@ -143,13 +153,14 @@ export const getCategory = async (req, res) => {
  * @route PUT /api/v1/category/super-admin/update-category
  * @access SUPER ADMIN
  */
-export const updateCategoryType = async (req, res) => {
+export const updateCategory = async (req, res) => {
   try {
-    const { id } = req.params;
-    let { name, description, isActive } = req.body;
-    const updatedBy = req.superAdmin_obj_id;
+    let { categoryId, name, description, is_active } = req.body;
+    const userId = req.superAdminDetails || req.superAdmin_obj_id;
+    const categoryFiles = req.files?.categoryFile || [];
 
-    if (!id) {
+    // 1 Validate category ID
+    if (!categoryId) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.PARAMETER_MISSING,
@@ -157,75 +168,81 @@ export const updateCategoryType = async (req, res) => {
       });
     }
 
-    const updateData = {};
-
-    // Validate and format name
-    if (name) {
-      name = name.replace(/\s+/g, "").toUpperCase();
-      if (!/^[A-Z]+$/.test(name)) {
-        return actionFailedResponse({
-          res,
-          errorCode: responseFlags.BAD_REQUEST,
-          msg: "Name must contain only capital letters A-Z.",
-        });
-      }
-      updateData.name = name;
-    }
-
-    // Boolean conversion
-    if (isActive !== undefined) {
-      if (typeof isActive === "string") {
-        isActive = isActive.toLowerCase() === "true";
-      }
-      updateData.isActive = Boolean(isActive);
-    }
-
-    // Handle image update using helper
-    if (req.files && Array.isArray(req.files) && req.files.length > 0 && name) {
-      const folderName = uploadFolderName.CATEGORY_TYPE_IMAGE;
-      const { imageUrlsArray, previewUrlsArray } = await processUploadedFiles(
-        req.files,
-        name,
-        folderName
-      );
-      if (imageUrlsArray.length > 0) {
-        updateData.imageUrls = imageUrlsArray[0];
-      }
-      if (previewUrlsArray.length > 0) {
-        updateData.previewUrls = previewUrlsArray[0];
-      }
-    }
-
-    // Track updater
-    if (updatedBy) {
-      updateData.updatedBy = updatedBy;
-    }
-
-    if (Object.keys(updateData).length === 0) {
+    // 2 Check category exists
+    const existingCategory = await prismaDB.Category.findUnique({
+      where: { id: categoryId },
+    });
+    if (!existingCategory) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.BAD_REQUEST,
-        msg: "At least one field (name, isActive, or image) is required.",
+        msg: "Category not found.",
       });
     }
 
-    const updated = await prismaDB.categoryType.update({
-      where: { id },
-      data: updateData,
+    // 3 Name validation if provided
+    if (name) {
+      name = name.toUpperCase();
+
+      // 3. Validate: only A–Z letters and spaces allowed
+      if (!/^[A-Z ]+$/.test(name)) {
+        return actionFailedResponse({
+          res,
+          errorCode: responseFlags.BAD_REQUEST,
+          msg: "Category name must contain only capital letters A-Z and spaces.",
+        });
+      }
+
+      // Check if name already used by another category
+      const nameExists = await prismaDB.Category.findFirst({
+        where: {
+          name,
+          NOT: { id: categoryId },
+        },
+      });
+
+      if (nameExists) {
+        return actionFailedResponse({
+          res,
+          errorCode: responseFlags.BAD_REQUEST,
+          msg: "This category name is already used.",
+        });
+      }
+    }
+
+    // 4 Update Image (universal helper)
+    const { publicUrl, previewUrl } = await updateFileHelper(
+      existingCategory.categoryUrls,
+      categoryFiles,
+      uploadFolderName.CATEGORY_LOGO,
+      name || existingCategory.name
+    );
+
+    // 5 Update DB
+    const updatedCategory = await prismaDB.Category.update({
+      where: { id: categoryId },
+      data: {
+        name: name || existingCategory.name,
+        is_active: is_active ?? existingCategory.is_active,
+        description: description || existingCategory.description,
+        updatedBy: userId,
+        categoryUrls: publicUrl,
+        categoryPreviewUrls: previewUrl,
+      },
     });
 
-    const msg = "Category type updated successfully.";
+    const msg = "Category updated successfully.";
     return actionCompleteResponse({
       res,
       msg,
-      data: { updated },
+      data: { category: updatedCategory },
     });
   } catch (error) {
-    console.error("Error updating category type:", error);
+    console.error("Error updating category:", error);
     return actionFailedResponse({
       res,
       errorCode: responseFlags.ACTION_FAILED,
-      msg: error.message || "Failed to update category type.",
+      msg: error.message || "Failed to update category.",
     });
   }
 };
@@ -238,32 +255,51 @@ export const updateCategoryType = async (req, res) => {
  * @route DELETE /api/v1/category/super-admin/delete-category
  * @access SUPER ADMIN
  */
-export const deleteCategoryType = async (req, res) => {
+export const deleteCategory = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { categoryId } = req.params;
 
-    if (!id) {
+    if (!categoryId) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.PARAMETER_MISSING,
-        msg: "Category ID is required.",
+        msg: responseMessages.PARAMETER_MISSING,
       });
     }
 
-    const deleted = await prismaDB.CategoryType.delete({
-      where: { id },
+    // Find category
+    const category = await prismaDB.Category.findUnique({
+      where: { id: categoryId },
     });
+    if (!category) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "Category not found.",
+      });
+    }
 
-    //also delete the image from cloudinary
+    // Delete image using helper
+    await updateFileHelper(
+      category.categoryUrls,
+      [],
+      uploadFolderName.CATEGORY_LOGO,
+      ""
+    );
+
+    // Delete category
+    await prismaDB.Category.delete({
+      where: { id: categoryId },
+    });
 
     const msg = "Category deleted successfully.";
     return actionCompleteResponse({
       res,
       msg,
-      data: { deleted },
+      data: {},
     });
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Error deleting category:", error);
     return actionFailedResponse({
       res,
       errorCode: responseFlags.ACTION_FAILED,

@@ -35,6 +35,7 @@ export const postJobValidator = Joi.object({
     .optional(),
   openings: Joi.number().integer().min(1).required(),
   deadline: Joi.date().optional(),
+  categoryId: Joi.string().required().uuid(),
 });
 
 export const updateJobValidator = Joi.object({
@@ -67,6 +68,7 @@ export const updateJobValidator = Joi.object({
     .try(Joi.array().items(Joi.object()), Joi.string())
     .optional(),
   deadline: Joi.date().optional(),
+  categoryId: Joi.string().optional().uuid(),
   isActive: Joi.boolean().optional(),
 });
 

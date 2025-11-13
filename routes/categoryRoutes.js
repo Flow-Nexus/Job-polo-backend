@@ -5,8 +5,8 @@ import { superAdminJwtToken } from "../middleware/superAdminJwt.js";
 import {
   applyForJob,
 } from "../controllers/jobController.js";
-import { getCategory } from "../controllers/categoryController.js";
-import { updateCategoryValidator } from "../validator/categoryValidator.js";
+import { addCategory, deleteCategory, getCategory, updateCategory } from "../controllers/categoryController.js";
+import { addCategoryValidator, deleteCategoryValidator, updateCategoryValidator } from "../validator/categoryValidator.js";
 
 const categoryRoutes = express.Router();
 
@@ -16,9 +16,9 @@ categoryRoutes.post(
   upload.fields([
     { name: "categoryFile", maxCount: 1 },
   ]),
-  // validate({ body: applyForJobValidator}),
+  validate({ body: addCategoryValidator}),
   superAdminJwtToken,
-  applyForJob
+  addCategory
 );
 
 categoryRoutes.get(
@@ -32,15 +32,15 @@ categoryRoutes.put(
    upload.fields([
     { name: "categoryFile", maxCount: 1 },
   ]),
-  // validate({ body: updateCategoryValidator}),
-  // superAdminJwtToken,
-  getCategory
+  validate({ body: updateCategoryValidator}),
+  superAdminJwtToken,
+  updateCategory
 );
 categoryRoutes.delete(
-  "/super-admin/delete-category",
-  // validate({ body: applyForJobValidator}),
-  // superAdminJwtToken,
-  getCategory
+  "/super-admin/delete-category/:categoryId",
+  validate({ body: deleteCategoryValidator }),
+  superAdminJwtToken,
+  deleteCategory
 );
 
 

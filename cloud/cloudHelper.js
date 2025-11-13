@@ -1,5 +1,6 @@
 import path from "path";
 import { uploadToCloudinary } from "./cloudinaryCloudStorage.js";
+import { v2 as cloudinary } from "cloudinary";
 
 /**
  * Processes uploaded files and returns arrays of public URLs, preview URLs, and filenames.
@@ -31,4 +32,64 @@ export const processUploadedFiles = async (files, folderName, email) => {
   }
 
   return { imageUrlsArray, previewUrlsArray };
+};
+
+/**
+ * Handles file update:
+ * - Deletes old file from Cloudinary
+ * - Uploads new file(s)
+ * - Returns updated file URLs
+ *
+ * @param {string|null} oldUrl - Old Cloudinary URL
+ * @param {Array} newFiles - New uploaded files
+ * @param {string} folderName - Folder inside Cloudinary
+ * @param {string} filePrefix - Prefix for naming (categoryName, email etc.)
+ * @returns {{ publicUrl: string|null, previewUrl: string|null }}
+ */
+export const updateFileHelper = async (
+  oldUrl,
+  newFiles,
+  folderName,
+  filePrefix
+) => {
+  let publicUrl = oldUrl;
+  let previewUrl = oldUrl;
+
+  try {
+    // 1 Delete old image if exists
+    if (oldUrl) {
+      try {
+        const fileName = oldUrl.split("/").pop();
+        const publicId = fileName.split(".")[0];
+
+        await cloudinary.uploader.destroy(
+          `JOBPOLODATA/${folderName}/${publicId}`
+        );
+      } catch (err) {
+        console.error("Old file delete failed:", err);
+      }
+    }
+
+    // 2 Upload new file (if provided)
+    if (newFiles && newFiles.length > 0) {
+      const file = newFiles[0];
+      const extension = path.extname(file.originalname).slice(1);
+      const newFileName = `${filePrefix}_${Date.now()}.${extension}`;
+
+      const filePath = `JOBPOLODATA/${folderName}/${newFileName}`;
+
+      const { publicLink, previewLink } = await uploadToCloudinary(
+        filePath,
+        file
+      );
+
+      publicUrl = publicLink;
+      previewUrl = previewLink;
+    }
+
+    return { publicUrl, previewUrl };
+  } catch (error) {
+    console.error("File update helper error:", error);
+    return { publicUrl: oldUrl, previewUrl: oldUrl };
+  }
 };

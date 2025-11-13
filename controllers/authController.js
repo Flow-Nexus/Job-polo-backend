@@ -1560,7 +1560,7 @@ export const getUserByID = async (req, res) => {
       ...roleSpecificData,
     };
 
-    const msg =  "User data fetched successfully.";
+    const msg = "User data fetched successfully.";
     return actionCompleteResponse({
       res,
       msg,

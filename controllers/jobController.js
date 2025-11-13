@@ -13,7 +13,6 @@ import {
 } from "../config/config.js";
 import { processUploadedFiles } from "../cloud/cloudHelper.js";
 import { deleteFileFromCloudinary } from "../cloud/cloudinaryCloudStorage.js";
-import { application } from "express";
 
 /**
  * @desc Job Post by Employer and Super Admin
@@ -44,7 +43,7 @@ export const postJob = async (req, res) => {
       skillsRequired,
       openings,
       deadline,
-      // categoryId,
+      categoryId,
     } = req.body;
     const jobLogoFiles = req.files?.logoFiles || [];
 
@@ -54,8 +53,8 @@ export const postJob = async (req, res) => {
       !description ||
       !addresses ||
       !companyName ||
-      !companyEmail
-      // !categoryId
+      !companyEmail ||
+      !categoryId
     ) {
       return actionFailedResponse({
         res,
@@ -70,6 +69,18 @@ export const postJob = async (req, res) => {
         res,
         errorCode: responseFlags.BAD_REQUEST,
         msg: "Invalid email format",
+      });
+    }
+
+    // Validate category
+    const categoryExists = await prismaDB.Category.findUnique({
+      where: { id: categoryId },
+    });
+    if (!categoryExists) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.NOT_FOUND,
+        msg: "Selected category does not exist.",
       });
     }
 
@@ -177,7 +188,7 @@ export const postJob = async (req, res) => {
         employmentType,
         companyName,
         companyEmail,
-        // categoryId,
+        categoryId,
         skillsRequired: Array.isArray(skillsRequired)
           ? skillsRequired
           : typeof skillsRequired === "string"
@@ -253,6 +264,7 @@ export const updateJob = async (req, res) => {
       deadline,
       companyEmail,
       companyName,
+      categoryId,
       isActive,
     } = req.body;
     const jobLogoFiles = req.files?.logoFiles || [];
@@ -284,6 +296,18 @@ export const updateJob = async (req, res) => {
         res,
         errorCode: responseFlags.NOT_FOUND,
         msg: "Job not found.",
+      });
+    }
+
+    // Validate categoryId exists
+    const categoryExists = await prismaDB.Category.findUnique({
+      where: { id: categoryId },
+    });
+    if (!categoryExists) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.NOT_FOUND,
+        msg: "Selected category does not exist.",
       });
     }
 
@@ -407,6 +431,7 @@ export const updateJob = async (req, res) => {
         is_active: isActive ?? true,
         employerId: employerId,
         superAdminId: superAdminId,
+        categoryId: categoryId ?? existingJob.categoryId,
         updatedBy: postedby,
         // Replace addresses (if any provided)
         jobPostAddresses: addressesArray.length
@@ -468,12 +493,13 @@ export const getJobsWithFilter = async (req, res) => {
       country,
       page,
       limit,
+      categoryId,
       is_active,
     } = req.query;
 
     // Convert pagination params safely
-    const pageNum = Number(page) || 1;
-    const limitNum = Number(limit) || 10;
+    const pageNum = Number(page);
+    const limitNum = Number(limit);
     const skip = (pageNum - 1) * limitNum;
     const take = limitNum;
 
@@ -483,7 +509,7 @@ export const getJobsWithFilter = async (req, res) => {
         ? is_active.toLowerCase() === "true"
         : undefined;
 
-    // Construct where conditions
+    // ------------------ WHERE CONDITIONS ------------------
     const where = {
       AND: [
         search
@@ -496,6 +522,8 @@ export const getJobsWithFilter = async (req, res) => {
           : {},
         mode ? { mode } : {},
         employmentType ? { employmentType } : {},
+        categoryId ? { categoryId } : {},
+        // Address filters
         city || state || country || pincode
           ? {
               jobPostAddresses: {
@@ -539,6 +567,7 @@ export const getJobsWithFilter = async (req, res) => {
         superAdmin: {
           include: { user: true },
         },
+        category: true,
       },
       orderBy: { createdAt: "desc" },
     });

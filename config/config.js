@@ -50,7 +50,7 @@ export const actionType = {
   LOGIN: "LOGIN",
   EMPLOYEE_REGISTER: "EMPLOYEE-REGISTER",
   EMPLOYER_REGISTER: "EMPLOYER-REGISTER",
-  SUPERADMINREGISTER: "SUPER-ADMIN-REGISTER",
+  SUPER_ADMIN_REGISTER: "SUPER-ADMIN-REGISTER",
   SETPASSWORD: "RESET-PASSWORD",
   FORGOTPASSWORD: "FORGOT-PASSWORD",
   JOBPOST: "JOB-POST",
@@ -60,7 +60,7 @@ export const availableActionType = [
   actionType.LOGIN,
   actionType.EMPLOYEE_REGISTER,
   actionType.EMPLOYER_REGISTER,
-  actionType.SUPERADMINREGISTER,
+  actionType.SUPER_ADMIN_REGISTER,
   actionType.SETPASSWORD,
   actionType.FORGOTPASSWORD,
   actionType.JOBPOST,
@@ -101,6 +101,7 @@ export const uploadFolderName = {
   SUPER_ADMIN_PORTFOLIO: "SUPER_ADMIN_PORTFOLIO",
   JOB_POST_LOGO: "JOB_POST_LOGO",
   JOB_UPDATE_LOGO: "JOB_UPDATE_LOGO",
+  CATEGORY_LOGO: "CATEGORY_LOGO",
 };
 export const availableUploadFolderName = [
   uploadFolderName.EMPLOYEE_RESUME,
@@ -108,7 +109,7 @@ export const availableUploadFolderName = [
   uploadFolderName.EMPLOYEE_IMAGE,
   uploadFolderName.SUPER_ADMIN_PORTFOLIO,
   uploadFolderName.JOB_POST_LOGO,
-  uploadFolderName.JOB_UPDATE_LOGO,
+  uploadFolderName.CATEGORY_LOGO,
 ];
 
 //for Job Mode
