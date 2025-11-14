@@ -1132,13 +1132,13 @@ export const forgotPassword = async (req, res) => {
       update: {
         password: hashedPassword,
         previousPassword: previousPasswords,
-        updatedBy: userby,
+        updatedBy: userId,
       },
       create: {
         userId,
         password: hashedPassword,
         previousPassword: previousPasswords,
-        createdBy: userby,
+        createdBy: userId,
       },
     });
 
