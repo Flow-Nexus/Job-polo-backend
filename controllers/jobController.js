@@ -6,7 +6,6 @@ import {
 import {
   actionType,
   ApplicationStatus,
-  availableApplicationStatus,
   responseFlags,
   responseMessages,
   uploadFolderName,

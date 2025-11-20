@@ -8,11 +8,9 @@ import {
   login,
   resetPassword,
   sendOTP,
-  superAdminRegister,
+  superAdminOnboardUser,
 } from "../controllers/authController.js";
 import validate from "../middleware/validate.js";
-import { employeeJwtToken } from "../middleware/employeeJwt.js";
-import { employerJwtToken } from "../middleware/employerJwt.js";
 import {
   employeeRegisterValidator,
   employerRegisterValidator,
@@ -22,10 +20,11 @@ import {
   loginValidator,
   resetPasswordValidator,
   sendOTPValidator,
-  superAdminRegisterValidator,
+  superAdminOnboardUserValidator,
 } from "../validator/authValidator.js";
 import { upload } from "../cloud/cloudinaryCloudStorage.js";
 import { superAdminJwtToken } from "../middleware/superAdminJwt.js";
+import { commonJwtToken } from "../middleware/commonJwt.js";
 
 const authRoutes = express.Router();
 
@@ -39,7 +38,7 @@ authRoutes.post("/employee/login", validate({ body: loginValidator }), login);
 authRoutes.post(
   "/employee/reset-password",
   validate({ body: resetPasswordValidator }),
-  employeeJwtToken,
+  commonJwtToken,
   resetPassword
 );
 authRoutes.post(
@@ -50,6 +49,7 @@ authRoutes.post(
 authRoutes.get(
   "/employee/get-user-profile/:userId",
   validate({ body: getUserWithIdValidator }),
+  commonJwtToken,
   getUserByID
 );
 
@@ -69,9 +69,9 @@ authRoutes.post(
 );
 
 authRoutes.get(
-  "/employee/get-users-with",
+  "/super-admin/get-users-with",
   validate({ body: getUsersWithValidator }),
-  employeeJwtToken,
+  superAdminJwtToken,
   getUsersWithFilters
 );
 
@@ -80,18 +80,15 @@ authRoutes.post(
   "/employer/register",
   upload.none(),
   validate({ body: employerRegisterValidator }),
-  // employerJwtToken,
   employerRegister
 );
 
 // SUPERADMIN ROUTES
 authRoutes.post(
-  "/super-admin/register",
-  upload.fields([{ name: "portfolioFiles", maxCount: 2 }]),
-  // upload.array("portfolioFiles", 1),
-  validate({ body: superAdminRegisterValidator }),
+  "/super-admin/on-bording",
+  validate({ body: superAdminOnboardUserValidator }),
   superAdminJwtToken,
-  superAdminRegister
+  superAdminOnboardUser
 );
 
 export default authRoutes;

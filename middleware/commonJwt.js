@@ -6,7 +6,7 @@ import { responseFlags, roleType } from "../config/config.js";
 
 dotenv.config();
 
-export const employerJwtToken = async (req, res, next) => {
+export const commonJwtToken = async (req, res, next) => {
   const token = req.headers["x-access-token"];
 
   try {
@@ -31,12 +31,16 @@ export const employerJwtToken = async (req, res, next) => {
       });
     }
 
-    // Fetch user with both relations (Employer + SuperAdmin)
+    // Fetch user with both relations (Employer + SuperAdmin + Admin + Employee)
     const user = await prismaDB.User.findUnique({
       where: { id: userId },
-      include: { employer: true, superAdmin: true },
+      include: {
+        employer: true,
+        superAdmin: true,
+        employee: true,
+        admin: true,
+      },
     });
-
     if (!user) {
       return actionFailedResponse({
         res,
@@ -54,7 +58,7 @@ export const employerJwtToken = async (req, res, next) => {
       });
     }
 
-    // Allow both Employer and SuperAdmin roles
+    // Allow All roles [EMPLOYER, SUPERADMIN, EMPLOYEE, ADMIN]
     if (user.role === roleType.EMPLOYER && user.employer) {
       req.employer_obj_id = user.id;
       req.employerDetails = `${user.firstName} ${user.lastName} - ${user.role}`;
@@ -65,6 +69,16 @@ export const employerJwtToken = async (req, res, next) => {
       req.superAdminDetails = `${user.firstName} ${user.lastName} - ${user.role}`;
       console.log("SuperAdmin obj id authenticated", req.superAdmin_obj_id);
       console.log("SuperAdmin Name authenticated", req.superAdminDetails);
+    } else if (user.role === roleType.EMPLOYEE && user.employee) {
+      req.employee_obj_id = user.id;
+      req.employeeDetails = `${user.firstName} ${user.lastName} - ${user.role}`;
+      console.log("Employee obj id authenticated", req.employee_obj_id);
+      console.log("Employee Name authenticated", req.employeeDetails);
+    } else if (user.role === roleType.ADMIN && user.admin) {
+      req.admin_obj_id = user.id;
+      req.adminDetails = `${user.firstName} ${user.lastName} - ${user.role}`;
+      console.log("Admin obj id authenticated", req.admin_obj_id);
+      console.log("Admin Name authenticated", req.adminDetails);
     } else {
       return actionFailedResponse({
         res,
@@ -76,7 +90,7 @@ export const employerJwtToken = async (req, res, next) => {
     // Continue to controller
     return next();
   } catch (err) {
-    console.error("Employer Token Error:", err.message);
+    console.error(err.message || "Common Token Error");
     return actionFailedResponse({
       res,
       errorCode: responseFlags.ACTION_FAILED,

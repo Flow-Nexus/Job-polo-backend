@@ -211,8 +211,11 @@ model Employer {
 
 // ---------------- Admin ----------------
 model Admin {
-  id     String @id @default(uuid())
-  userId String @unique
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  linkedinUrl String?
+  TCPolicy    Boolean? @default(false)
+  is_active   Boolean  @default(true)
 
   user User @relation(fields: [userId], references: [id])
 }

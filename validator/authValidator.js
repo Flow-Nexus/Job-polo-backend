@@ -192,58 +192,87 @@ export const forgotPasswordValidator = Joi.object({
   }),
 });
 
-export const superAdminRegisterValidator = Joi.object({
-  email: Joi.string()
-    .email({ tlds: { allow: false } })
-    .required()
-    .messages({
-      "string.empty": "Email is required",
-      "string.email": "Invalid email format",
-    }),
-  firstName: Joi.string().min(2).max(50).required().messages({
-    "string.empty": "First name is required",
-    "string.min": "First name must be at least 2 characters",
+// ---- role-specific conditional schemas ----
+const employerSchema = {
+  companyName: Joi.string().required().messages({
+    "any.required": "companyName is required for Employer",
   }),
-  lastName: Joi.string().min(2).max(50).required().messages({
-    "string.empty": "Last name is required",
-    "string.min": "Last name must be at least 2 characters",
+  industry: Joi.string().required().messages({
+    "any.required": "industry is required for Employer",
   }),
-  countryCode: Joi.string().optional(),
-  mobileNumber: Joi.string()
-    .pattern(/^[0-9]{7,15}$/)
-    .optional()
-    .messages({
-      "string.pattern.base": "Mobile number must be 7-15 digits",
-    }),
-  alternativeMobileNumber: Joi.string()
-    .pattern(/^[0-9]{7,15}$/)
-    .optional()
-    .messages({
-      "string.pattern.base": "Mobile number must be 7-15 digits",
-    }),
-  gender: Joi.string()
-    .valid(...availableUserGender)
-    .messages({
-      "string.empty": "Gender is not valid",
-    }),
-  dob: Joi.string().optional(),
-  linkedinUrl: Joi.string().optional(),
-  city: Joi.string().optional(),
-  state: Joi.string().optional(),
-  country: Joi.string().optional(),
-  pincode: Joi.string().optional(),
-  password: Joi.string().min(6).optional().messages({
-    "string.min": "Password must be at least 6 characters",
+  functionArea: Joi.string().required().messages({
+    "any.required": "functionArea is required for Employer",
   }),
-  confirmPassword: Joi.string().valid(Joi.ref("password")).optional().messages({
-    "any.only": "Password and confirm password do not match",
+};
+
+const employeeSchema = {
+  skills: Joi.array().items(Joi.string()).required().messages({
+    "any.required": "skills field is required for Employee",
   }),
-  TCPolicy: Joi.boolean().required().messages({
-    "any.required": "Terms and Conditions must be accepted",
+  experience: Joi.number().required().messages({
+    "any.required": "experience is required for Employee",
+  }),
+  industry: Joi.string().required().messages({
+    "any.required": "industry is required for Employee",
+  }),
+  functionArea: Joi.string().required().messages({
+    "any.required": "functionArea is required for Employee",
+  }),
+};
+
+// ---- Global Validator Schema ----
+export const superAdminOnboardUserValidator = Joi.object({
+  role: Joi.string()
+    .valid(...availableRole)
+    .required(),
+  email: Joi.string().email().required(),
+  firstName: Joi.string().required(),
+  lastName: Joi.string().required(),
+  countryCode: Joi.string().optional().allow(null, ""),
+  mobileNumber: Joi.string().optional().allow(null, ""),
+  alternativeMobileNumber: Joi.string().optional().allow(null, ""),
+  city: Joi.string().required(),
+  state: Joi.string().required(),
+  country: Joi.string().required(),
+  pincode: Joi.string().required(),
+  linkedinUrl: Joi.string().uri().allow(null, "").optional(),
+  TCPolicy: Joi.alternatives()
+    .try(Joi.boolean(), Joi.string().valid("true", "false"))
+    .optional(),
+  password: Joi.string().min(6).allow(null, ""),
+  confirmPassword: Joi.string().valid(Joi.ref("password")).messages({
+    "any.only": "Password and Confirm Password do not match",
   }),
   otp: Joi.string().length(6).required().messages({
     "string.empty": "OTP is required",
     "string.length": "OTP must be 6 digits",
+  }),
+
+  // role-based conditional validation
+  companyName: Joi.when("role", {
+    is: "EMPLOYER",
+    then: employerSchema.companyName,
+    otherwise: Joi.forbidden(),
+  }),
+  industry: Joi.when("role", {
+    is: Joi.valid("EMPLOYER", "EMPLOYEE"),
+    then: Joi.string().required(),
+    otherwise: Joi.optional().allow(null),
+  }),
+  functionArea: Joi.when("role", {
+    is: Joi.valid("EMPLOYER", "EMPLOYEE"),
+    then: Joi.string().required(),
+    otherwise: Joi.optional().allow(null),
+  }),
+  skills: Joi.when("role", {
+    is: "EMPLOYEE",
+    then: employeeSchema.skills,
+    otherwise: Joi.optional().allow(null),
+  }),
+  experience: Joi.when("role", {
+    is: "EMPLOYEE",
+    then: employeeSchema.experience,
+    otherwise: Joi.optional().allow(null),
   }),
 });
 

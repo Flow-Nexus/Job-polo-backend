@@ -55,6 +55,7 @@ export const actionType = {
   FORGOTPASSWORD: "FORGOT-PASSWORD",
   JOBPOST: "JOB-POST",
   UPDATEJOBPOST: "UPDATE-JOB-POST",
+  ON_BORDING: "ON-BORDING",
 };
 export const availableActionType = [
   actionType.LOGIN,
@@ -64,7 +65,7 @@ export const availableActionType = [
   actionType.SETPASSWORD,
   actionType.FORGOTPASSWORD,
   actionType.JOBPOST,
-  actionType.UPDATEJOBPOST,
+  actionType.ON_BORDING,
 ];
 
 //for user role
