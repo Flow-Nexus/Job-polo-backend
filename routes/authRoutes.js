@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  completeUserProfile,
   employeeRegister,
   employerRegister,
   forgotPassword,
@@ -51,6 +52,12 @@ authRoutes.get(
   validate({ body: getUserWithIdValidator }),
   commonJwtToken,
   getUserByID
+);
+authRoutes.put(
+  "/employee/complete-user-profile/:userId",
+  // validate({ body: getUserWithIdValidator }),
+  commonJwtToken,
+  completeUserProfile
 );
 
 //EMPLOYEE ROUTES

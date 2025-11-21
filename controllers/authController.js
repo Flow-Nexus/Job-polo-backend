@@ -1603,3 +1603,120 @@ export const getUserByID = async (req, res) => {
     });
   }
 };
+
+/**
+ * @desc Complete User Profile With ID
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @return {Object} JSON response with success or error message
+ * @route PUT /api/v1/auth/employee/complete-user-profile/:userId
+ * @access ALL ROLES
+ */
+export const completeUserProfile = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const createdBy =
+      req.superAdminDetails || req.superAdmin_obj_id || "Self-Super_Admin";
+
+    if (!userId) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.PARAMETER_MISSING,
+        msg: "User ID is required",
+      });
+    }
+
+    // -------- Fetch base user with relations --------
+    const user = await prismaDB.User.findUnique({
+      where: { id: userId },
+      include: {
+        address: true,
+        superAdmin: true,
+        admin: true,
+        employer: true,
+        employee: true,
+      },
+    });
+
+    if (!user) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.NOT_FOUND,
+        msg: "User not found",
+      });
+    }
+
+    // -------- MISSING FIELDS CHECKER FUNCTION --------
+    const missingFields = [];
+    const check = (field, name) => {
+      if (!field || field === "" || field === null) missingFields.push(name);
+    };
+
+    // -------- COMMON FIELDS --------
+    check(user.email, "email");
+    check(user.firstName, "firstName");
+    check(user.lastName, "lastName");
+    check(user.mobileNumber, "mobileNumber");
+
+    // -------- ADDRESS FIELDS --------
+    if (user.address) {
+      check(user.address.city, "city");
+      check(user.address.state, "state");
+      check(user.address.country, "country");
+      check(user.address.pincode, "pincode");
+    } else {
+      missingFields.push("address");
+    }
+
+    // --------------------------------
+    // ROLE SPECIFIC VALIDATION LOGIC
+    // --------------------------------
+
+    const role = user.role;
+
+    if (role === "SUPER_ADMIN") {
+      check(user.superAdmin?.linkedinUrl, "linkedinUrl");
+      check(user.superAdmin?.TCPolicy, "TCPolicy");
+    }
+
+    if (role === "ADMIN") {
+      check(user.admin?.linkedinUrl, "linkedinUrl");
+      check(user.admin?.TCPolicy, "TCPolicy");
+    }
+
+    if (role === "EMPLOYER") {
+      check(user.employer?.companyName, "companyName");
+      check(user.employer?.industry, "industry");
+      check(user.employer?.functionArea, "functionArea");
+      check(user.employer?.TCPolicy, "TCPolicy");
+    }
+
+    if (role === "EMPLOYEE") {
+      check(user.employee?.industry, "industry");
+      check(user.employee?.functionArea, "functionArea");
+      check(user.employee?.skills?.length > 0 ? true : false, "skills");
+      check(user.employee?.experience, "experience");
+      check(user.employee?.TCPolicy, "TCPolicy");
+    }
+
+    // Completed or not?
+    const profileCompleted = missingFields.length === 0;
+
+    return actionCompleteResponse({
+      res,
+      msg: "Profile fetch successful",
+      data: {
+        user,
+        profileCompleted,
+        missingFields,
+      },
+    });
+  } catch (error) {
+    return actionFailedResponse({
+      res,
+      errorCode: responseFlags.ACTION_FAILED,
+      msg: error.message || "Error fetching profile",
+    });
+  }
+};
+
