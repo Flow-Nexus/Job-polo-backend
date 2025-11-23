@@ -9,6 +9,7 @@ import {
   login,
   resetPassword,
   sendOTP,
+  superAdminDeleteOrCancelUser,
   superAdminOnboardUser,
 } from "../controllers/authController.js";
 import validate from "../middleware/validate.js";
@@ -22,6 +23,7 @@ import {
   resetPasswordValidator,
   sendOTPValidator,
   superAdminOnboardUserValidator,
+  userCancelAndDeleteValidator,
 } from "../validator/authValidator.js";
 import { upload } from "../cloud/cloudinaryCloudStorage.js";
 import { superAdminJwtToken } from "../middleware/superAdminJwt.js";
@@ -96,6 +98,12 @@ authRoutes.post(
   validate({ body: superAdminOnboardUserValidator }),
   superAdminJwtToken,
   superAdminOnboardUser
+);
+authRoutes.delete(
+  "/super-admin/delete-or-cancel-user",
+  validate({ body: userCancelAndDeleteValidator }),
+  superAdminJwtToken,
+  superAdminDeleteOrCancelUser
 );
 
 export default authRoutes;

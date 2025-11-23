@@ -10,10 +10,12 @@ import {
   AuthProvider,
   availableActionType,
   availableRole,
+  availableUserStatus,
   responseFlags,
   responseMessages,
   roleType,
   uploadFolderName,
+  userStatus,
 } from "../config/config.js";
 import { sendOTPVerification } from "../utlis/helper/helper.js";
 import bcrypt from "bcrypt";
@@ -1703,6 +1705,232 @@ export const completeUserProfile = async (req, res) => {
       res,
       errorCode: responseFlags.ACTION_FAILED,
       msg: error.message || "Error fetching profile",
+    });
+  }
+};
+
+/**
+ * @desc DELETE/DISABLE/ENABLE User With ID
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @return {Object} JSON response with success or error message
+ * @route DELETE /api/v1/auth/employee/complete-user-profile/:userId
+ * @access ALL ROLES
+ */
+export const superAdminDeleteOrCancelUser = async (req, res) => {
+  try {
+    const { actionType, userId } = req.query;
+    const performedBy =
+      req.superAdminDetails || req.superAdmin_obj_id || "Self-Super_Admin";
+
+    if (!userId || !actionType) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.PARAMETER_MISSING,
+        msg: responseMessages.PARAMETER_MISSING,
+      });
+    }
+
+    if (!availableUserStatus?.includes(actionType)) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "Invalid actionType. Use DELETE, ENABLE or DISABLE.",
+      });
+    }
+
+    // Fetch user with role
+    const user = await prismaDB.User.findUnique({
+      where: { id: userId },
+      include: {
+        employee: true,
+        employer: true,
+        admin: true,
+        superAdmin: true,
+        address: true,
+      },
+    });
+    if (!user) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.NOT_FOUND,
+        msg: "User not found.",
+      });
+    }
+
+    // ------------------ ACTIVE/INACTIVE VALIDATION ------------------
+    if (actionType === userStatus.DISABLE && user.is_active === false) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "User is already inactive.",
+      });
+    }
+
+    if (actionType === userStatus.ENABLE && user.is_active === true) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "User is already active.",
+      });
+    }
+
+    // Prevent deleting/canceling the main super admin (optional safeguard)
+    // if (user.role === "SUPER_ADMIN") {
+    //   return actionFailedResponse({
+    //     res,
+    //     errorCode: responseFlags.BAD_REQUEST,
+    //     msg: "Cannot delete/cancel a Super Admin.",
+    //   });
+    // }
+
+    // ------------------ TRANSACTION ------------------
+    await prismaDB.$transaction(async (tx) => {
+      // ------------------- HARD DELETE -------------------
+      if (actionType === userStatus.DELETE) {
+        // Delete child tables first because of FK constraints
+        if (user.addressId) {
+          await tx.Address.delete({
+            where: { id: user.addressId },
+          });
+        }
+        await tx.Employee.deleteMany({ where: { userId } });
+        await tx.Employer.deleteMany({ where: { userId } });
+        await tx.Admin.deleteMany({ where: { userId } });
+        await tx.SuperAdmin.deleteMany({ where: { userId } });
+        await tx.UserOTPVerification.deleteMany({ where: { userId } });
+        await tx.ResetPasswordToken.deleteMany({ where: { userId } });
+
+        // Delete actual user
+        await tx.User.delete({ where: { id: userId } });
+
+        return;
+      }
+
+      // ------------------- USER DISABLE -------------------
+      if (actionType === userStatus.DISABLE) {
+        // Update user general status
+        await tx.User.update({
+          where: { id: userId },
+          data: {
+            is_active: false,
+            updatedBy: performedBy,
+          },
+        });
+
+        // Soft deactivate role tables
+        const role = user.role;
+
+        const inactiveMap = {
+          EMPLOYEE: () =>
+            tx.Employee.updateMany({
+              where: { userId },
+              data: { is_active: false, updatedBy: performedBy },
+            }),
+
+          EMPLOYER: () =>
+            tx.Employer.updateMany({
+              where: { userId },
+              data: { is_active: false, updatedBy: performedBy },
+            }),
+
+          ADMIN: () =>
+            tx.Admin.updateMany({
+              where: { userId },
+              data: { is_active: false, updatedBy: performedBy },
+            }),
+
+          SUPER_ADMIN: () =>
+            tx.SuperAdmin.updateMany({
+              where: { userId },
+              data: { is_active: false, updatedBy: performedBy },
+            }),
+        };
+
+        if (inactiveMap[role]) await inactiveMap[role]();
+
+        // Address also inactive
+        if (user.addressId) {
+          await tx.Address.update({
+            where: { id: user.addressId },
+            data: { is_active: false, updatedBy: performedBy },
+          });
+        }
+      }
+
+      // ------------------- USER ENABLE -------------------
+      if (actionType === userStatus.ENABLE) {
+        // Update user general status
+        await tx.User.update({
+          where: { id: userId },
+          data: {
+            is_active: true,
+            updatedBy: performedBy,
+          },
+        });
+
+        // Soft deactivate role tables
+        const role = user.role;
+
+        const inactiveMap = {
+          EMPLOYEE: () =>
+            tx.Employee.updateMany({
+              where: { userId },
+              data: { is_active: true, updatedBy: performedBy },
+            }),
+
+          EMPLOYER: () =>
+            tx.Employer.updateMany({
+              where: { userId },
+              data: { is_active: true, updatedBy: performedBy },
+            }),
+
+          ADMIN: () =>
+            tx.Admin.updateMany({
+              where: { userId },
+              data: { is_active: true, updatedBy: performedBy },
+            }),
+
+          SUPER_ADMIN: () =>
+            tx.SuperAdmin.updateMany({
+              where: { userId },
+              data: { is_active: true, updatedBy: performedBy },
+            }),
+        };
+
+        if (inactiveMap[role]) await inactiveMap[role]();
+
+        // Address also inactive
+        if (user.addressId) {
+          await tx.Address.update({
+            where: { id: user.addressId },
+            data: { is_active: true, updatedBy: performedBy },
+          });
+        }
+      }
+    });
+
+    // ------------- RESPONSE MESSAGE BASED ON ACTION -------------
+    const MESSAGE_MAP = {
+      DELETE: "User deleted permanently.",
+      DISABLE: "User disabled successfully.",
+      ENABLE: "User enabled successfully.",
+    };
+
+    return actionCompleteResponse({
+      res,
+      msg: MESSAGE_MAP[actionType],
+      data: {
+        action: actionType,
+        userId,
+      },
+    });
+  } catch (error) {
+    console.error("Error in delete/cancel user:", error);
+    return actionFailedResponse({
+      res,
+      errorCode: responseFlags.ACTION_FAILED,
+      msg: error.message || "Error processing delete/cancel action.",
     });
   }
 };

@@ -166,3 +166,14 @@ export const availableApplicationStatus = [
   ApplicationStatus.CONTACTVIEW,
   ApplicationStatus.SELECTED,
 ];
+
+export const userStatus = {
+  DELETE: "DELETE",
+  DISABLE: "DISABLE",
+  ENABLE: "ENABLE",
+};
+export const availableUserStatus = [
+  userStatus.DELETE,
+  userStatus.DISABLE,
+  userStatus.ENABLE,
+];

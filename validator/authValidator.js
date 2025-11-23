@@ -3,6 +3,8 @@ import {
   availableActionType,
   availableRole,
   availableUserGender,
+  availableUserStatus,
+  userStatus,
 } from "../config/config.js";
 
 export const sendOTPValidator = Joi.object({
@@ -293,4 +295,11 @@ export const getUsersWithValidator = Joi.object({
 
 export const getUserWithIdValidator = Joi.object({
   userId: Joi.string().required(),
+});
+
+export const userCancelAndDeleteValidator = Joi.object({
+  userId: Joi.string().required(),
+  actionType: Joi.string()
+    .valid(...availableUserStatus)
+    .required(),
 });
