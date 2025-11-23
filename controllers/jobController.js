@@ -1070,13 +1070,13 @@ export const getActiveJobApplications = async (req, res) => {
     const {
       jobId,
       employeeId,
-      status, // filter by ApplicationStatus
-      appliedBy, // who applied
-      startDate, // filter applications from this date
-      endDate, // filter applications until this date
-      search, // text search on employee name or job title
-      page = 1,
-      limit = 20,
+      status,
+      appliedBy,
+      startDate, 
+      endDate, 
+      search, 
+      page,
+      limit,
       sortBy = "createdAt",
       order = "desc",
     } = req.query;
