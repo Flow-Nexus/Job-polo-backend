@@ -37,7 +37,7 @@ export const addCategory = async (req, res) => {
     }
 
     // 2.remove all spaces and convert to uppercase
-    name = name.toUpperCase();
+    name = name?.toUpperCase();
 
     // 3. Validate: only A–Z letters and spaces allowed
     if (!/^[A-Z ]+$/.test(name)) {
@@ -70,8 +70,8 @@ export const addCategory = async (req, res) => {
         uploadFolderName.CATEGORY_LOGO,
         name
       );
-      categoryUrls = categoryResults.categoryUrls?.[0] || null;
-      categoryPreviewUrls = categoryResults.categoryPreviewUrls?.[0] || null;
+      categoryUrls = categoryResults.imageUrlsArray?.[0] || null;
+      categoryPreviewUrls = categoryResults.previewUrlsArray?.[0] || null;
     }
 
     // 5. Save category type

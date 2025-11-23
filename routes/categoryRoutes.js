@@ -23,7 +23,7 @@ categoryRoutes.post(
 
 categoryRoutes.get(
   "/super-admin/get-category",
-  // validate({ body: applyForJobValidator}),
+  // validate({ body: getCategoryValidator}),
   getCategory
 );
 
