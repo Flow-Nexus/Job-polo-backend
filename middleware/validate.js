@@ -1,7 +1,7 @@
 import Joi from "joi";
 import { actionFailedResponse } from "../config/common.js";
 import pick from "../utlis/helper/pick.js";
-// import { sendActionFailedResponse } from "../helper/appHelper/common.js";
+import { responseFlags } from "../config/config.js";
 
 const validate = (schema) => (req, res, next) => {
   const validSchema = pick(schema, ["params", "query", "body"]);
@@ -13,10 +13,14 @@ const validate = (schema) => (req, res, next) => {
 
   if (error) {
     const errorMessage = error.details
-      .map((detail) => detail.message)
+      ?.map((detail) => detail.message)
       .join(", ");
     console.log("Validation Error:", errorMessage);
-    return actionFailedResponse(res, {}, errorMessage);
+    return actionFailedResponse({
+      res,
+      errorCode: responseFlags.BAD_REQUEST,
+      msg: errorMessage,
+    });
   }
 
   Object.assign(req, value);
