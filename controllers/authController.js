@@ -1431,11 +1431,13 @@ export const getUsersWithFilters = async (req, res) => {
       limit,
     } = req.query;
 
-    // Convert pagination params
-    const skip = (Number(page) - 1) * Number(limit);
-    const take = Number(limit);
+    // Safe pagination defaults
+    const pageNumber = Number(page) || 1;
+    const limitNumber = Number(limit) || 20;
 
-    // ----------- BUILD PRISMA FILTERS -------------
+    const skip = (pageNumber - 1) * limitNumber;
+    const take = limitNumber;
+
     const filters = {};
 
     if (userId) filters.id = userId;
@@ -1444,7 +1446,6 @@ export const getUsersWithFilters = async (req, res) => {
     if (is_active !== undefined)
       filters.is_active = is_active === "true" || is_active === true;
 
-    // Optional search filter
     if (search) {
       filters.OR = [
         { email: { contains: search, mode: "insensitive" } },
@@ -1454,7 +1455,6 @@ export const getUsersWithFilters = async (req, res) => {
       ];
     }
 
-    // Employee filters (done inside Prisma now)
     const employeeFilter =
       experience || industry || functionArea
         ? {
@@ -1470,43 +1470,30 @@ export const getUsersWithFilters = async (req, res) => {
           }
         : {};
 
-    // ---------------- QUERY USERS ----------------
+    const where = { ...filters, ...employeeFilter };
+
     const users = await prismaDB.User.findMany({
-      where: {
-        ...filters,
-        ...employeeFilter,
-      },
+      where,
       include: {
         address: true,
         employee: true,
         employer: true,
+        superAdmin: true,
       },
       skip,
       take,
       orderBy: { createdAt: "desc" },
     });
 
-    // Total count with same filters
-    const totalCount = await prismaDB.User.count({
-      where: {
-        ...filters,
-        ...employeeFilter,
-      },
-    });
+    const totalCount = await prismaDB.User.count({ where });
 
-    // const totalCount = await prismaDB.User.count({ where: filters });
-
-    const msg = "Users fetched successfully";
     return actionCompleteResponse({
       res,
-      msg,
-      data: {
-        totalCount,
-        users,
-      },
+      msg: "Users fetched successfully",
+      data: { totalCount, users },
     });
   } catch (error) {
-    console.error("Error in getAllUsers:", error);
+    console.error("Error in getUsersWithFilters:", error);
     return actionFailedResponse({
       res,
       errorCode: responseFlags.ACTION_FAILED,
@@ -1530,8 +1517,8 @@ export const getUserByID = async (req, res) => {
     if (!userId) {
       return actionFailedResponse({
         res,
-        errorCode: responseFlags.INVALID_REQUEST,
-        msg: "User ID is required in URL.",
+        errorCode: responseFlags.PARAMETER_MISSING,
+        msg: responseMessages.PARAMETER_MISSING,
       });
     }
 
@@ -1719,4 +1706,3 @@ export const completeUserProfile = async (req, res) => {
     });
   }
 };
-
