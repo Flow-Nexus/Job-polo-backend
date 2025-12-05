@@ -177,3 +177,29 @@ export const availableUserStatus = [
   userStatus.DISABLE,
   userStatus.ENABLE,
 ];
+
+export const salaryType = {
+  YEARLY: "YEARLY",
+  MONTHLY: "MONTHLY",
+};
+export const availableSalaryType = [
+  salaryType.YEARLY,
+  salaryType.MONTHLY,
+];
+
+export const shiftType = {
+  MORNING: "MORNING",
+  AFTERNOON: "AFTERNOON",
+  EVENING: "EVENING",
+  NIGHT: "NIGHT",
+  SPLIT: "SPLIT",
+  ROTATIONAL: "ROTATIONAL",
+};
+export const availableShiftType = [
+  shiftType.MORNING,
+  shiftType.AFTERNOON,
+  shiftType.EVENING,
+  shiftType.NIGHT,
+  shiftType.SPLIT,
+  shiftType.ROTATIONAL,
+];

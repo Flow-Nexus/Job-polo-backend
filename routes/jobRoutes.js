@@ -7,6 +7,7 @@ import { superAdminJwtToken } from "../middleware/superAdminJwt.js";
 import {
   applyForJob,
   deleteJob,
+  getActiveJobApplications,
   getAllJobApplications,
   getJobsWithFilter,
   postJob,
@@ -86,10 +87,10 @@ jobRoutes.post(
 );
 
 jobRoutes.get(
-  "/employer/get-active-job-applications/:jobId",
+  "/employer/get-active-job-applications",
   validate({ body: getJobApplicationsValidator }),
   employerJwtToken,
-  updateJobApplicationStatus
+  getActiveJobApplications
 );
 
 // SUPERADMIN ROUTES

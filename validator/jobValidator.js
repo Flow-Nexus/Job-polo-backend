@@ -3,6 +3,8 @@ import {
   availableApplicationStatus,
   availableEmploymentType,
   availableJobMode,
+  availableSalaryType,
+  availableShiftType,
 } from "../config/config.js";
 
 export const postJobValidator = Joi.object({
@@ -11,8 +13,42 @@ export const postJobValidator = Joi.object({
   requirements: Joi.string().allow(""),
   responsibilities: Joi.string().allow(""),
   education: Joi.string().allow(""),
-  experienceRange: Joi.string().allow(""),
-  salaryRange: Joi.string().allow(""),
+
+  // ------------------- NEW FIELDS -------------------
+
+  minExperience: Joi.number().integer().min(0).optional(),
+  maxExperience: Joi.number()
+    .integer()
+    .min(Joi.ref("minExperience"))
+    .optional(),
+  salaryType: Joi.string()
+    .valid(...availableSalaryType)
+    .optional(),
+  minSalary: Joi.number().integer().min(0).optional(),
+  maxSalary: Joi.number().integer().min(Joi.ref("minSalary")).optional(),
+  shiftType: Joi.alternatives()
+    .try(
+      Joi.array().items(Joi.string().valid(...availableShiftType)),
+      Joi.string() // allow stringified JSON
+    )
+    .optional(),
+  questionnaire: Joi.alternatives()
+    .try(
+      Joi.object({
+        skills: Joi.array().items(Joi.string()).max(5).optional(),
+        willingToRelocate: Joi.boolean().optional(),
+        expectedCTC: Joi.string().optional(),
+        noticePeriod: Joi.string().optional(),
+        dob: Joi.string().optional(),
+      })
+        .unknown(true) // allow dynamic Q selections
+        .optional(),
+      Joi.string() // allow JSON string from frontend
+    )
+    .optional(),
+
+  // experienceRange: Joi.string().allow(""),
+  // salaryRange: Joi.string().allow(""),
   companyName: Joi.string().allow("").required(),
   companyEmail: Joi.string()
     .email({ tlds: { allow: false } })
@@ -44,7 +80,26 @@ export const updateJobValidator = Joi.object({
   requirements: Joi.string().optional(),
   responsibilities: Joi.string().optional(),
   education: Joi.string().optional(),
-  experienceRange: Joi.string().optional(),
+  // NEW FIELDS
+  minExperience: Joi.number().integer().min(0).optional(),
+  maxExperience: Joi.number()
+    .integer()
+    .min(Joi.ref("minExperience"))
+    .optional(),
+  salaryType: Joi.string()
+    .valid(...availableSalaryType)
+    .optional(),
+  minSalary: Joi.number().integer().min(0).optional(),
+  maxSalary: Joi.number().integer().min(Joi.ref("minSalary")).optional(),
+  shiftType: Joi.alternatives()
+    .try(
+      Joi.array().items(Joi.string().valid(...availableShiftType)),
+      Joi.string()
+    )
+    .optional(),
+  questionnaire: Joi.alternatives()
+    .try(Joi.object().unknown(true), Joi.string())
+    .optional(),
   companyName: Joi.string().required().allow(""),
   companyEmail: Joi.string()
     .email({ tlds: { allow: false } })
@@ -53,7 +108,6 @@ export const updateJobValidator = Joi.object({
       "string.empty": "companyEmail is required",
       "string.email": "Invalid email format",
     }),
-  salaryRange: Joi.string().optional(),
   mode: Joi.string()
     .valid(...availableJobMode)
     .optional(),
@@ -98,6 +152,16 @@ export const applyForJobValidator = Joi.object({
   howFitRole: Joi.string().optional().allow(null, "").messages({
     "string.base": "How fit role must be a string",
   }),
+  questionnaireAnswers: Joi.alternatives()
+    .try(
+      Joi.object().unknown(true), 
+      Joi.string() 
+    )
+    .optional()
+    .messages({
+      "string.base": "questionnaireAnswers must be JSON string",
+      "object.base": "questionnaireAnswers must be an object",
+    }),
 });
 
 export const withdrawJobApplicationValidator = Joi.object({
@@ -137,7 +201,9 @@ export const getJobApplicationsValidator = Joi.object({
     .valid(...availableApplicationStatus)
     .optional()
     .messages({
-      "any.only": `Invalid status. Must be one of: ${availableApplicationStatus.join(", ")}`,
+      "any.only": `Invalid status. Must be one of: ${availableApplicationStatus.join(
+        ", "
+      )}`,
     }),
   appliedBy: Joi.string().optional(),
   startDate: Joi.date().iso().optional().messages({

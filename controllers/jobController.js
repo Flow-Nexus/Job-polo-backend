@@ -6,6 +6,8 @@ import {
 import {
   actionType,
   ApplicationStatus,
+  availableSalaryType,
+  availableShiftType,
   responseFlags,
   responseMessages,
   uploadFolderName,
@@ -32,8 +34,6 @@ export const postJob = async (req, res) => {
       requirements,
       responsibilities,
       education,
-      experienceRange,
-      salaryRange,
       mode,
       companyName,
       companyEmail,
@@ -43,6 +43,13 @@ export const postJob = async (req, res) => {
       openings,
       deadline,
       categoryId,
+      minExperience,
+      maxExperience,
+      salaryType,
+      minSalary,
+      maxSalary,
+      shiftType,
+      questionnaire,
     } = req.body;
     const jobLogoFiles = req.files?.logoFiles || [];
 
@@ -171,6 +178,51 @@ export const postJob = async (req, res) => {
       }
     }
 
+    let finalShiftType = [];
+
+    try {
+      if (shiftType) {
+        if (Array.isArray(shiftType)) {
+          // Already an array
+          finalShiftType = shiftType;
+        } else if (typeof shiftType === "string") {
+          // Try JSON.parse() first
+          try {
+            finalShiftType = JSON.parse(shiftType);
+          } catch {
+            // Fallback: comma-separated string → convert to array
+            finalShiftType = shiftType.split(",").map((s) => s.trim());
+          }
+        }
+      }
+    } catch (err) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "Invalid shiftType format. Must be array or comma-separated string.",
+      });
+    }
+
+    // Parse questionnaire safely
+    let finalQuestionnaire = null;
+
+    try {
+      if (typeof questionnaire === "string") {
+        const parsed = JSON.parse(questionnaire);
+        finalQuestionnaire = Object.keys(parsed).length ? parsed : null;
+      } else if (typeof questionnaire === "object" && questionnaire !== null) {
+        finalQuestionnaire = Object.keys(questionnaire).length
+          ? questionnaire
+          : null;
+      }
+    } catch (err) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "Invalid questionnaire format. Must be JSON.",
+      });
+    }
+
     // Create Job + Addresses in one transaction
     const job = await prismaDB.Job.create({
       data: {
@@ -179,8 +231,15 @@ export const postJob = async (req, res) => {
         requirements,
         responsibilities,
         education,
-        experienceRange,
-        salaryRange,
+        minExperience: minExperience ? Number(minExperience) : 0,
+        maxExperience: maxExperience ? Number(maxExperience) : 0,
+        salaryType: availableSalaryType.includes(salaryType)
+          ? salaryType
+          : null,
+        minSalary: minSalary ? Number(minSalary) : null,
+        maxSalary: maxSalary ? Number(maxSalary) : null,
+        shiftType: finalShiftType,
+        questionnaire: finalQuestionnaire,
         mode,
         logoUrl,
         logoPreviewUrl,
@@ -254,8 +313,6 @@ export const updateJob = async (req, res) => {
       requirements,
       responsibilities,
       education,
-      experienceRange,
-      salaryRange,
       mode,
       employmentType,
       skillsRequired,
@@ -265,9 +322,15 @@ export const updateJob = async (req, res) => {
       companyName,
       categoryId,
       isActive,
+      minExperience,
+      maxExperience,
+      salaryType,
+      minSalary,
+      maxSalary,
+      shiftType,
+      questionnaire,
     } = req.body;
     const jobLogoFiles = req.files?.logoFiles || [];
-    const action = actionType.UPDATEJOBPOST;
 
     if (!jobId || !title || !addresses || !companyEmail || !companyName) {
       return actionFailedResponse({
@@ -351,6 +414,51 @@ export const updateJob = async (req, res) => {
       useremail = superAdmin.user.email;
     }
 
+    // ---------- Parse shiftType ----------
+    let finalShiftType = existingJob.shiftType || [];
+
+    try {
+      if (shiftType) {
+        if (Array.isArray(shiftType)) {
+          finalShiftType = shiftType;
+        } else if (typeof shiftType === "string") {
+          try {
+            finalShiftType = JSON.parse(shiftType);
+          } catch {
+            finalShiftType = shiftType.split(",").map((s) => s.trim());
+          }
+        }
+      }
+    } catch {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "Invalid shiftType format",
+      });
+    }
+
+    // ---------- Parse questionnaire ----------
+    let finalQuestionnaire = existingJob.questionnaire || null;
+
+    try {
+      if (questionnaire) {
+        if (typeof questionnaire === "string") {
+          const parsed = JSON.parse(questionnaire);
+          finalQuestionnaire = Object.keys(parsed).length ? parsed : null;
+        } else if (typeof questionnaire === "object") {
+          finalQuestionnaire = Object.keys(questionnaire).length
+            ? questionnaire
+            : null;
+        }
+      }
+    } catch {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "Invalid questionnaire JSON",
+      });
+    }
+
     // ---------- FILE UPLOAD ----------
     let logoUrl = null;
     let logoPreviewUrl = null;
@@ -414,12 +522,25 @@ export const updateJob = async (req, res) => {
         requirements: requirements ?? existingJob.requirements,
         responsibilities: responsibilities ?? existingJob.responsibilities,
         education: education ?? existingJob.education,
-        experienceRange: experienceRange ?? existingJob.experienceRange,
-        salaryRange: salaryRange ?? existingJob.salaryRange,
         companyEmail: companyEmail ?? existingJob.companyEmail,
         companyName: companyName ?? existingJob.companyName,
         mode: mode ?? existingJob.mode,
         employmentType: employmentType ?? existingJob.employmentType,
+        minExperience:
+          minExperience !== undefined
+            ? Number(minExperience)
+            : existingJob.minExperience,
+        maxExperience:
+          maxExperience !== undefined
+            ? Number(maxExperience)
+            : existingJob.maxExperience,
+        salaryType: salaryType ?? existingJob.salaryType,
+        minSalary:
+          minSalary !== undefined ? Number(minSalary) : existingJob.minSalary,
+        maxSalary:
+          maxSalary !== undefined ? Number(maxSalary) : existingJob.maxSalary,
+        shiftType: finalShiftType,
+        questionnaire: finalQuestionnaire,
         openings: openings ? Number(openings) : existingJob.openings,
         skillsRequired: skillsArray.length
           ? skillsArray
@@ -675,6 +796,17 @@ export const applyForJob = async (req, res) => {
     const appliedBy = req.employeeDetails;
     const { jobId, howFitRole } = req.body;
 
+    if (!employeeIdBy) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.UNAUTHORIZED,
+        msg: "Employee authentication missing.",
+      });
+    }
+
+    console.log("EMPLOYEE OBJ ID:", req.employee_obj_id);
+    console.log("EMPLOYEE DETAILS:", req.employeeDetails);
+
     const resumeFiles = req.files?.resumeFiles || [];
     const workSampleFiles = req.files?.workSampleFiles || [];
 
@@ -733,6 +865,59 @@ export const applyForJob = async (req, res) => {
         errorCode: responseFlags.CONFLICT,
         msg: "You have already applied for this job.",
       });
+    }
+
+    const { questionnaireAnswers } = req.body;
+
+    // STEP A — Validate questionnaire requirement
+    const requiredQuestions = job.questionnaire
+      ? Object.keys(job.questionnaire)
+      : [];
+
+    if (requiredQuestions.length > 0) {
+      // Candidate must submit answers
+      if (!questionnaireAnswers) {
+        return actionFailedResponse({
+          res,
+          errorCode: responseFlags.PARAMETER_MISSING,
+          msg: "Questionnaire answers are required for this job.",
+        });
+      }
+
+      let parsedAnswers = questionnaireAnswers;
+
+      // Parse if JSON string
+      if (typeof questionnaireAnswers === "string") {
+        try {
+          parsedAnswers = JSON.parse(questionnaireAnswers);
+        } catch {
+          return actionFailedResponse({
+            res,
+            errorCode: responseFlags.BAD_REQUEST,
+            msg: "Invalid questionnaireAnswers JSON format.",
+          });
+        }
+      }
+
+      // Validate user answered all required questions
+      for (let q of requiredQuestions) {
+        if (
+          parsedAnswers[q] === undefined ||
+          parsedAnswers[q] === null ||
+          parsedAnswers[q] === ""
+        ) {
+          return actionFailedResponse({
+            res,
+            errorCode: responseFlags.PARAMETER_MISSING,
+            msg: `Missing answer for required question: ${q}`,
+          });
+        }
+      }
+
+      // Save parsed object for DB
+      req.finalQuestionnaireAnswers = parsedAnswers;
+    } else {
+      req.finalQuestionnaireAnswers = null; // No questions required
     }
 
     // ---------- FILE UPLOAD ----------
@@ -838,6 +1023,7 @@ export const applyForJob = async (req, res) => {
           is_active: true,
           status: ApplicationStatus.RE_APPLIED,
           appliedBy: appliedBy,
+          questionnaireAnswers: req.finalQuestionnaireAnswers,
           howFitRole: howFitRole || null,
           statusReason: "Re-Applied application successfully after withdrawal",
           resumeUrls,
@@ -867,6 +1053,7 @@ export const applyForJob = async (req, res) => {
           statusReason: "Applied the application successfully",
           howFitRole: howFitRole || null,
           appliedBy: appliedBy,
+          questionnaireAnswers: req.finalQuestionnaireAnswers,
           resumeUrls,
           resumePreviewUrls,
           workSampleUrls,
@@ -1072,12 +1259,12 @@ export const getActiveJobApplications = async (req, res) => {
       employeeId,
       status,
       appliedBy,
-      startDate, 
-      endDate, 
-      search, 
+      startDate,
+      endDate,
+      search,
       page,
       limit,
-      sortBy = "createdAt",
+      sortBy = "appliedAt",
       order = "desc",
     } = req.query;
 
@@ -1090,9 +1277,9 @@ export const getActiveJobApplications = async (req, res) => {
 
     // Date filter
     if (startDate || endDate) {
-      filters.createdAt = {};
-      if (startDate) filters.createdAt.gte = new Date(startDate);
-      if (endDate) filters.createdAt.lte = new Date(endDate);
+      filters.appliedAt = {};
+      if (startDate) filters.appliedAt.gte = new Date(startDate);
+      if (endDate) filters.appliedAt.lte = new Date(endDate);
     }
 
     // Pagination
@@ -1145,13 +1332,13 @@ export const getActiveJobApplications = async (req, res) => {
       res,
       msg: "Job applications fetched successfully",
       data: {
-        jobApplications,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
           total,
           totalPages: Math.ceil(total / limit),
         },
+        jobApplications,
       },
     });
   } catch (error) {
@@ -1184,7 +1371,7 @@ export const getAllJobApplications = async (req, res) => {
       search, // text search on employee name or job title
       page = 1,
       limit = 20,
-      sortBy = "createdAt",
+      sortBy = "appliedAt",
       order = "desc",
     } = req.query;
 
@@ -1197,9 +1384,9 @@ export const getAllJobApplications = async (req, res) => {
 
     // Date filter
     if (startDate || endDate) {
-      filters.createdAt = {};
-      if (startDate) filters.createdAt.gte = new Date(startDate);
-      if (endDate) filters.createdAt.lte = new Date(endDate);
+      filters.appliedAt = {};
+      if (startDate) filters.appliedAt.gte = new Date(startDate);
+      if (endDate) filters.appliedAt.lte = new Date(endDate);
     }
 
     // Pagination
@@ -1252,13 +1439,13 @@ export const getAllJobApplications = async (req, res) => {
       res,
       msg: "Job applications fetched successfully",
       data: {
-        jobApplications,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
           total,
           totalPages: Math.ceil(total / limit),
         },
+        jobApplications,
       },
     });
   } catch (error) {

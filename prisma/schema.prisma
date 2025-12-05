@@ -63,6 +63,20 @@ enum EmploymentType {
   FREELANCE
 }
 
+enum salaryType {
+  YEARLY
+  MONTHLY
+}
+
+enum shiftType {
+  MORNING
+  AFTERNOON
+  EVENING
+  NIGHT
+  SPLIT
+  ROTATIONAL
+}
+
 // ---------------- User (Base Table) ----------------
 model User {
   id                      String       @id @default(uuid())
@@ -292,8 +306,13 @@ model Job {
   requirements     String
   responsibilities String
   education        String?
-  experienceRange  String?
-  salaryRange      String?
+  minExperience    Int?
+  maxExperience    Int?
+  salaryType       salaryType? // "YEARLY" | "MONTHLY"
+  minSalary        Int?
+  maxSalary        Int?
+  shiftType        shiftType[] // ["MORNING","EVENING",...]
+  questionnaire    Json? // stores selected Q’s + answers
   companyName      String
   companyEmail     String
   mode             JobMode?
@@ -333,6 +352,7 @@ model JobApplication {
   userId                String?
   howFitRole            String?
   statusReason          String?
+  questionnaireAnswers  Json?
   resumeUrls            String[]          @default([])
   resumePreviewUrls     String[]          @default([])
   workSampleUrls        String[]          @default([])
