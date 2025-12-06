@@ -188,6 +188,7 @@ export const updateJobApplicationStatusValidator = Joi.object({
   reason: Joi.string().optional().allow(null, "").messages({
     "string.base": "Reason must be a string",
   }),
+  jobId: Joi.string().optional().allow()
 });
 
 export const getJobApplicationsValidator = Joi.object({
@@ -217,4 +218,6 @@ export const getJobApplicationsValidator = Joi.object({
   limit: Joi.number().integer().min(1).max(100).optional().default(20),
   sortBy: Joi.string().optional().default("createdAt"),
   order: Joi.string().valid("asc", "desc").optional().default("desc"),
+  employerId: Joi.string().uuid().optional(),
+  categoryId: Joi.string().uuid().optional(),
 });

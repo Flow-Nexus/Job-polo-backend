@@ -1715,7 +1715,7 @@ export const completeUserProfile = async (req, res) => {
  * @param {Object} res - Express response object
  * @return {Object} JSON response with success or error message
  * @route DELETE /api/v1/auth/employee/complete-user-profile/:userId
- * @access ALL ROLES
+ * @access SUPER_ADMIN
  */
 export const superAdminDeleteOrCancelUser = async (req, res) => {
   try {

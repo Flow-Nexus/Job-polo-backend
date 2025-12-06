@@ -14,6 +14,8 @@ import {
 } from "../config/config.js";
 import { processUploadedFiles } from "../cloud/cloudHelper.js";
 import { deleteFileFromCloudinary } from "../cloud/cloudinaryCloudStorage.js";
+import { JobApplicationStatusMessages } from "../utlis/utlis.js";
+import { sendApplicationStatusEmail } from "../utlis/helper/helper.js";
 
 /**
  * @desc Job Post by Employer and Super Admin
@@ -1180,11 +1182,11 @@ export const withdrawJobApplication = async (req, res) => {
  */
 export const updateJobApplicationStatus = async (req, res) => {
   try {
-    const { applicationId, newStatus, reason } = req.body;
+    const { applicationId, newStatus, reason, jobId } = req.body;
     const updatedBy = req.employeeDetails || req.superAdminDetails;
 
     // Validate required parameters
-    if (!applicationId || !newStatus) {
+    if (!applicationId || !newStatus || !jobId) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.PARAMETER_MISSING,
@@ -1195,14 +1197,37 @@ export const updateJobApplicationStatus = async (req, res) => {
     // Find the application
     const application = await prismaDB.JobApplication.findUnique({
       where: { id: applicationId },
-      include: { job: { include: { jobPostAddresses: true } } },
+      include: {
+        employee: {
+          include: { user: true },
+        },
+        job: { include: { jobPostAddresses: true } },
+      },
     });
-
+    console.log("application", application);
     if (!application) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.NOT_FOUND,
         msg: "Job application not found",
+      });
+    }
+
+    // Check jobId matches application's job
+    if (application.jobId !== jobId) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.CONFLICT,
+        msg: "This application does not belong to the provided job",
+      });
+    }
+
+    // Check if the status is already the same
+    if (application.status === newStatus) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.CONFLICT,
+        msg: `Application already in status: ${newStatus}`,
       });
     }
 
@@ -1215,6 +1240,18 @@ export const updateJobApplicationStatus = async (req, res) => {
       });
     }
 
+    // OPTIONAL: Restrict updates to employer of that job
+    if (
+      req.employeeDetails &&
+      application.job.employerId !== req.employeeDetails.id
+    ) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.UNAUTHORIZED,
+        msg: "You are not authorized to update this job’s applications",
+      });
+    }
+
     // Update application status
     const updatedApplication = await prismaDB.JobApplication.update({
       where: { id: applicationId },
@@ -1224,15 +1261,35 @@ export const updateJobApplicationStatus = async (req, res) => {
         updatedBy,
       },
       include: {
+        employee: { include: { user: true } },
         job: { include: { jobPostAddresses: true } },
       },
     });
 
-    const msg = `Job application status updated to ${newStatus}`;
+    // Select message according to status
+    const message =
+      JobApplicationStatusMessages[newStatus] ||
+      "Your job application status has been updated.";
+
+    // Send email
+    const emailResult = await sendApplicationStatusEmail({
+      email: updatedApplication.employee.user.email,
+      employeeFirstName: updatedApplication?.employee?.user?.firstName,
+      employeeLastName: updatedApplication?.employee?.user?.lastName,
+      status: newStatus,
+      message,
+      reason,
+    });
+
+    const msg = `Job application status updated to ${newStatus} and ${message}`;
     return actionCompleteResponse({
       res,
       msg,
-      data: { updatedApplication },
+      data: {
+        emailSent: emailResult.success,
+        emailMessage: message,
+        updatedApplication,
+      },
     });
   } catch (error) {
     console.error("Error updating job application status:", error);
@@ -1259,6 +1316,8 @@ export const getActiveJobApplications = async (req, res) => {
       employeeId,
       status,
       appliedBy,
+      employerId,
+      categoryId,
       startDate,
       endDate,
       search,
@@ -1274,6 +1333,17 @@ export const getActiveJobApplications = async (req, res) => {
     if (employeeId) filters.employeeId = employeeId;
     if (status) filters.status = status;
     if (appliedBy) filters.appliedBy = appliedBy;
+    if (employerId) {
+      filters.job = {
+        employerId: employerId,
+      };
+    }
+    if (categoryId) {
+      filters.job = {
+        ...(filters.job || {}),
+        categoryId: categoryId,
+      };
+    }
 
     // Date filter
     if (startDate || endDate) {
@@ -1300,7 +1370,7 @@ export const getActiveJobApplications = async (req, res) => {
         }
       : {};
 
-    // Fetch from DB
+    // Fetch from Job application
     const jobApplications = await prismaDB.JobApplication.findMany({
       where: {
         ...filters,
@@ -1311,6 +1381,7 @@ export const getActiveJobApplications = async (req, res) => {
         job: {
           include: {
             employer: { include: { user: true } },
+            category: true,
             jobPostAddresses: true,
           },
         },
@@ -1364,13 +1435,15 @@ export const getAllJobApplications = async (req, res) => {
     const {
       jobId,
       employeeId,
-      status, // filter by ApplicationStatus
-      appliedBy, // who applied
-      startDate, // filter applications from this date
-      endDate, // filter applications until this date
-      search, // text search on employee name or job title
-      page = 1,
-      limit = 20,
+      status,
+      appliedBy,
+      employerId,
+      categoryId,
+      startDate,
+      endDate,
+      search,
+      page,
+      limit,
       sortBy = "appliedAt",
       order = "desc",
     } = req.query;
@@ -1381,6 +1454,17 @@ export const getAllJobApplications = async (req, res) => {
     if (employeeId) filters.employeeId = employeeId;
     if (status) filters.status = status;
     if (appliedBy) filters.appliedBy = appliedBy;
+    if (employerId) {
+      filters.job = {
+        employerId: employerId,
+      };
+    }
+    if (categoryId) {
+      filters.job = {
+        ...(filters.job || {}),
+        categoryId: categoryId,
+      };
+    }
 
     // Date filter
     if (startDate || endDate) {
@@ -1418,6 +1502,7 @@ export const getAllJobApplications = async (req, res) => {
         job: {
           include: {
             employer: { include: { user: true } },
+            category: true,
             jobPostAddresses: true,
           },
         },

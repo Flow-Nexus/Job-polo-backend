@@ -121,3 +121,73 @@ export const sendOTPVerification = async ({
     };
   }
 };
+
+// Send Email to EMPLOYEE for JOB Status
+export const sendApplicationStatusEmail = async ({
+  email,
+  employeeFirstName,
+  employeeLastName,
+  status,
+  reason,
+  message,
+}) => {
+  try {
+    const mailOptions = {
+      from: `"Job Polo" ${process.env.JOBPOLO_COMPANY_EMAIL}`,
+      to: email,
+      subject: `Job Application Status Updated – ${status}- Jobpolo.com`,
+      html: `
+      <div style="font-family: Arial; background: #f9fafb; padding: 20px;">
+        <table style="max-width: 600px; margin: auto; background: #fff; padding: 20px; border-radius: 10px;">
+          <tr>
+            <td style="text-align:center;">
+              <img src="cid:jobpolo_logo" width="120" />
+              <h2>Status Update: ${status}</h2>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-top: 10px; color: #333;">
+              <p>Hi ${employeeFirstName || ""} ${
+        employeeLastName || "Candidate"
+      },</p>
+              <p>${message}</p>
+
+              ${reason ? `<p><b>Reason:</b> ${reason}</p>` : ""}
+
+              <p>Thank you for using <b>JobPolo</b>.</p>
+            </td>
+          </tr>
+        </table>
+        <p style="font-size: 14px; color: #666; text-align: center;">
+          Thank you for choosing <b><a href="https://www.jobpolo.com" target="_blank" style="color: #004aad; text-decoration: none;">JobPolo.com</a></b> — where opportunities meet talent.
+        </p>
+      </div>
+    `,
+      attachments: [
+        {
+          filename: "logo.png",
+          path: "assets/icons/logo.png",
+          cid: "jobpolo_logo",
+        },
+      ],
+    };
+
+    // Check SMTP connection
+    transporter.verify((error, success) => {
+      if (error) {
+        console.error("SMTP Connection Failed:", error);
+      } else {
+        console.log("SMTP Connection Successful!", success);
+      }
+    });
+
+    await transporter.sendMail(mailOptions);
+    return {
+      success: true,
+      message: "Job Application Status Updade",
+    };
+  } catch (err) {
+    console.error("Email sending error:", err);
+    return { success: false };
+  }
+};

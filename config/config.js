@@ -148,11 +148,16 @@ export const ApplicationStatus = {
   WITHDRAW: "WITHDRAW",
   RE_APPLIED: "RE_APPLIED",
   REJECTED: "REJECTED",
-  RESUMEVIEWED: "RESUME_VIEWED",
-  WAITINGEMPLOYERACTION: "WAITING_EMPLOYER_ACTION",
-  APPLICATIONSEND: "APPLICATION_SEND",
-  CONTACTVIEW: "CONTACT_VIEW",
+  RESUME_VIEWED: "RESUME_VIEWED",
+  WAITING_EMPLOYER_ACTION: "WAITING_EMPLOYER_ACTION",
+  APPLICATION_SEND: "APPLICATION_SEND",
+  CONTACT_VIEW: "CONTACT_VIEW",
   SELECTED: "SELECTED",
+  SHORTLISTED: "SHORTLISTED", 
+  INTERVIEW_SCHEDULED: "INTERVIEW_SCHEDULED",
+  INTERVIEW_COMPLETED: "INTERVIEW_COMPLETED",
+  OFFERED: "OFFERED",
+  HIRED: "HIRED"
 };
 export const availableApplicationStatus = [
   ApplicationStatus.PENDING,
@@ -160,11 +165,16 @@ export const availableApplicationStatus = [
   ApplicationStatus.WITHDRAW,
   ApplicationStatus.RE_APPLIED,
   ApplicationStatus.REJECTED,
-  ApplicationStatus.RESUMEVIEWED,
-  ApplicationStatus.WAITINGEMPLOYERACTION,
-  ApplicationStatus.APPLICATIONSEND,
-  ApplicationStatus.CONTACTVIEW,
+  ApplicationStatus.RESUME_VIEWED,
+  ApplicationStatus.WAITING_EMPLOYER_ACTION,
+  ApplicationStatus.APPLICATION_SEND,
+  ApplicationStatus.CONTACT_VIEW,
   ApplicationStatus.SELECTED,
+  ApplicationStatus.SHORTLISTED,
+  ApplicationStatus.INTERVIEW_SCHEDULED,
+  ApplicationStatus.INTERVIEW_COMPLETED,
+  ApplicationStatus.OFFERED,
+  ApplicationStatus.HIRED,
 ];
 
 export const userStatus = {
