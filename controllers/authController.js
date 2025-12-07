@@ -17,7 +17,7 @@ import {
   uploadFolderName,
   userStatus,
 } from "../config/config.js";
-import { sendOTPVerification } from "../utlis/helper/helper.js";
+import { generateUniqueId, sendOTPVerification } from "../utlis/helper/helper.js";
 import bcrypt from "bcrypt";
 import otpGenerator from "otp-generator";
 import { processUploadedFiles } from "../cloud/cloudHelper.js";
@@ -214,11 +214,15 @@ export const employeeRegister = async (req, res) => {
     // Delete used OTP
     await prismaDB.oTP.delete({ where: { id: recentOtp.id } });
 
+    //Gnerate User ID 
+    const UserUniqueID = await generateUniqueId("USER",roleType.EMPLOYEE);
+
     // ---------- REGISTER NEW USER ----------
     if (!user) {
-      // 2️ Create User
+      // 1 Create User
       user = await prismaDB.User.create({
         data: {
+          UserUniqueID,
           email,
           firstName,
           lastName,
@@ -248,9 +252,9 @@ export const employeeRegister = async (req, res) => {
       let resumePreviewUrls = [];
       let workSampleUrls = [];
       let workSamplePreviewUrls = [];
-      console.log("resumeFiles", resumeFiles);
-      console.log("workSampleFiles", workSampleFiles);
-      console.log("email", email);
+      // console.log("resumeFiles", resumeFiles);
+      // console.log("workSampleFiles", workSampleFiles);
+      // console.log("email", email);
       if (resumeFiles.length > 0) {
         const resumeResults = await processUploadedFiles(
           resumeFiles,
@@ -465,11 +469,14 @@ export const employerRegister = async (req, res) => {
     // Delete used OTP
     await prismaDB.OTP.delete({ where: { id: recentOtp.id } });
 
+    const UserUniqueID = await generateUniqueId("USER",roleType.EMPLOYER);
+
     // ---------- REGISTER NEW USER ----------
     if (!user) {
       // 1️ Create User
       user = await prismaDB.User.create({
         data: {
+          UserUniqueID,
           email,
           firstName,
           lastName,
@@ -1268,11 +1275,14 @@ export const superAdminOnboardUser = async (req, res) => {
     // OTP used → delete
     await prismaDB.OTP.delete({ where: { id: otpRecord.id } });
 
+    const UserUniqueID = await generateUniqueId("USER",role);
+
     // -----------------Start transaction--------------------
     const result = await prismaDB.$transaction(async (tx) => {
       // ---------------------- Create User --------------------------
       const user = await tx.User.create({
         data: {
+          UserUniqueID,
           email,
           firstName,
           lastName,

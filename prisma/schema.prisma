@@ -91,6 +91,7 @@ enum SaveViewType {
 // ---------------- User (Base Table) ----------------
 model User {
   id                      String       @id @default(uuid())
+  UserUniqueID            String?
   email                   String       @unique
   firstName               String
   lastName                String
@@ -310,6 +311,7 @@ model Category {
 // ---------------- Job Posting ----------------
 model Job {
   id               String          @id @default(uuid())
+  jobUniqueID      String
   title            String
   description      String
   requirements     String
@@ -353,6 +355,7 @@ model Job {
 // ---------------- Job Applications ----------------
 model JobApplication {
   id                    String            @id @default(uuid())
+  applicationUniqueID   String?
   status                ApplicationStatus @default(PENDING)
   jobId                 String
   employeeId            String
@@ -381,7 +384,7 @@ model SavedDetails {
   id        String       @id @default(uuid())
   userId    String
   type      SaveViewType
-  value     String 
+  value     String
   is_active Boolean      @default(true)
 
   createdAt DateTime @default(now())

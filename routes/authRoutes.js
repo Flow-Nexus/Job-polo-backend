@@ -57,7 +57,7 @@ authRoutes.get(
 );
 authRoutes.put(
   "/employee/complete-user-profile/:userId",
-  validate({ body: getUserWithIdValidator }),
+  // validate({ body: getUserWithIdValidator }),
   commonJwtToken,
   completeUserProfile
 );

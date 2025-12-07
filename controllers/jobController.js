@@ -18,7 +18,7 @@ import {
 import { processUploadedFiles } from "../cloud/cloudHelper.js";
 import { deleteFileFromCloudinary } from "../cloud/cloudinaryCloudStorage.js";
 import { JobApplicationStatusMessages } from "../utlis/utlis.js";
-import { sendApplicationStatusEmail } from "../utlis/helper/helper.js";
+import { sendApplicationStatusEmail, generateUniqueId } from "../utlis/helper/helper.js";
 
 /**
  * @desc Job Post by Employer and Super Admin
@@ -228,9 +228,13 @@ export const postJob = async (req, res) => {
       });
     }
 
+    //Generated Job ID
+    const jobUniqueID = await generateUniqueId("JOB", postedby);
+
     // Create Job + Addresses in one transaction
     const job = await prismaDB.Job.create({
       data: {
+        jobUniqueID,
         title,
         description,
         requirements,
@@ -1017,6 +1021,9 @@ export const applyForJob = async (req, res) => {
       },
     });
 
+    //Generating Application ID
+    const applicationUniqueID = await generateUniqueId("APPLICATION", appliedBy);
+
     let jobApplication;
     let msg;
 
@@ -1025,6 +1032,7 @@ export const applyForJob = async (req, res) => {
       jobApplication = await prismaDB.JobApplication.update({
         where: { id: withdrawnApplication.id },
         data: {
+          applicationUniqueID,
           is_active: true,
           status: ApplicationStatus.RE_APPLIED,
           appliedBy: appliedBy,
@@ -1051,6 +1059,7 @@ export const applyForJob = async (req, res) => {
       // Create new application
       jobApplication = await prismaDB.JobApplication.create({
         data: {
+          applicationUniqueID,
           jobId,
           status: ApplicationStatus.APPLIED,
           employeeId: employee.id,

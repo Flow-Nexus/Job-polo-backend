@@ -191,3 +191,37 @@ export const sendApplicationStatusEmail = async ({
     return { success: false };
   }
 };
+
+//Generate Unique id
+export const generateUniqueId = async (type, role) => {
+  const today = moment().format("YYYYMMDD");
+
+  let modelName;
+
+  switch (type) {
+    case "USER":
+      modelName = prismaDB.User;
+      break;
+    case "JOB":
+      modelName = prismaDB.Job;
+      break;
+    case "APPLICATION":
+      modelName = prismaDB.JobApplication;
+      break;
+    default:
+      throw new Error("Invalid ID generation type");
+  }
+
+  const countToday = await modelName.count({
+    where: {
+      createdAt: {
+        gte: new Date(`${today}T00:00:00Z`),
+        lte: new Date(`${today}T23:59:59Z`),
+      },
+    },
+  });
+
+  const serial = String(countToday + 1).padStart(3, "0");
+
+  return `T${type}R${role}DT${today}S${serial}`;
+};
