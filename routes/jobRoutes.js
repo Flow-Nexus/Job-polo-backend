@@ -10,6 +10,7 @@ import {
   getActiveJobApplications,
   getAllJobApplications,
   getJobsWithFilter,
+  getSaveAndViewActivity,
   postJob,
   savedDetails,
   updateJob,
@@ -22,6 +23,7 @@ import {
   deleteJobValidator,
   getJobApplicationsValidator,
   getJobsWithValidator,
+  getSaveAndViewdActivityValidator,
   postJobValidator,
   savedDetailsValidator,
   updateJobApplicationStatusValidator,
@@ -110,6 +112,13 @@ jobRoutes.get(
   validate({ body: getJobApplicationsValidator }),
   employerJwtToken,
   getActiveJobApplications
+);
+
+jobRoutes.get(
+  "/employer/get-save-view-activity",
+  validate({ body: getSaveAndViewdActivityValidator }),
+  employerJwtToken,
+  getSaveAndViewActivity
 );
 
 // SUPERADMIN ROUTES

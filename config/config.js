@@ -221,3 +221,23 @@ export const availableSaveViewType = [
   SaveViewType.CANDIDATE,
   SaveViewType.JOB_APPLICATION,
 ];
+
+export const SaveViewActivityType = {
+  VIEWED: "VIEWED",
+  SAVED: "SAVED",
+  BOTH: "BOTH",
+};
+export const availableSaveViewActivityType = [
+  SaveViewActivityType.VIEWED,
+  SaveViewActivityType.SAVED,
+  SaveViewActivityType.BOTH,
+];
+
+export const sortedBy = {
+  NEWEST: "NEWEST",
+  OLDEST: "OLDEST",
+};
+export const availableShortedBy = [
+  sortedBy.NEWEST,
+  sortedBy.OLDEST,
+];

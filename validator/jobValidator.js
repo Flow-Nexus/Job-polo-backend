@@ -4,8 +4,10 @@ import {
   availableEmploymentType,
   availableJobMode,
   availableSalaryType,
+  availableSaveViewActivityType,
   availableSaveViewType,
   availableShiftType,
+  availableShortedBy,
 } from "../config/config.js";
 
 export const postJobValidator = Joi.object({
@@ -154,10 +156,7 @@ export const applyForJobValidator = Joi.object({
     "string.base": "How fit role must be a string",
   }),
   questionnaireAnswers: Joi.alternatives()
-    .try(
-      Joi.object().unknown(true), 
-      Joi.string() 
-    )
+    .try(Joi.object().unknown(true), Joi.string())
     .optional()
     .messages({
       "string.base": "questionnaireAnswers must be JSON string",
@@ -189,7 +188,7 @@ export const updateJobApplicationStatusValidator = Joi.object({
   reason: Joi.string().optional().allow(null, "").messages({
     "string.base": "Reason must be a string",
   }),
-  jobId: Joi.string().optional().allow()
+  jobId: Joi.string().optional().allow(),
 });
 
 export const getJobApplicationsValidator = Joi.object({
@@ -223,13 +222,49 @@ export const getJobApplicationsValidator = Joi.object({
   categoryId: Joi.string().uuid().optional(),
 });
 
-
 export const savedDetailsValidator = Joi.object({
-  type: Joi.string().valid(...availableSaveViewType).required(),
+  type: Joi.string()
+    .valid(...availableSaveViewType)
+    .required(),
   id: Joi.string().uuid().required(),
 });
 
 export const viewedDetailsValidator = Joi.object({
-  type: Joi.string().valid(...availableSaveViewType).required(),
+  type: Joi.string()
+    .valid(...availableSaveViewType)
+    .required(),
   id: Joi.string().uuid().required(),
+});
+
+export const getSaveAndViewdActivityValidator = Joi.object({
+  activityType: Joi.string()
+    .valid(...availableSaveViewActivityType)
+    .messages({
+      "any.only": "activityType must be SAVED, VIEWED, or BOTH",
+    }),
+  type: Joi.string()
+    .valid(
+      ...availableSaveViewType,
+      ...availableSaveViewType.map((v) => v.toLowerCase())
+    )
+    .optional()
+    .messages({
+      "any.only": `type must be one of: ${availableSaveViewType.join(", ")}`,
+    }),
+  is_active: Joi.boolean().optional(),
+  startDate: Joi.date().iso().optional().messages({
+    "date.format": "startDate must be a valid ISO date",
+  }),
+  endDate: Joi.date().iso().optional().messages({
+    "date.format": "endDate must be a valid ISO date",
+  }),
+  search: Joi.string().allow("").optional(),
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(200).default(10),
+  sort: Joi.string()
+    .valid(...availableShortedBy)
+    .default("newest")
+    .messages({
+      "any.only": "sort must be newest or oldest",
+    }),
 });

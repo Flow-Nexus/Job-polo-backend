@@ -7,6 +7,7 @@ import {
   actionType,
   ApplicationStatus,
   availableSalaryType,
+  availableSaveViewActivityType,
   availableSaveViewType,
   availableShiftType,
   responseFlags,
@@ -1686,7 +1687,10 @@ export const savedDetails = async (req, res) => {
 export const viewedDetails = async (req, res) => {
   try {
     const { type, id: value } = req.params;
-    const userId = req.user?.id;
+    const userId =
+      req?.employee_obj_id || req?.employer_obj_id || req?.superAdmin_obj_id;
+    const viewedBy =
+      req.employeeDetails || req.employerDetails || req.superAdminDetails;
 
     if (!userId) {
       return actionFailedResponse({
@@ -1697,8 +1701,7 @@ export const viewedDetails = async (req, res) => {
     }
 
     // Validate type
-    const validTypes = ["JOB", "CANDIDATE", "APPLICATION"];
-    if (!validTypes.includes(type)) {
+    if (!availableSaveViewType.includes(type)) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.PARAMETER_MISSING,
@@ -1707,7 +1710,7 @@ export const viewedDetails = async (req, res) => {
     }
 
     // Validate entity exists
-    if (type === "JOB") {
+    if (type === SaveViewType.JOB) {
       const job = await prismaDB.Job.findUnique({ where: { id: value } });
       if (!job) {
         return actionFailedResponse({
@@ -1718,7 +1721,7 @@ export const viewedDetails = async (req, res) => {
       }
     }
 
-    if (type === "CANDIDATE") {
+    if (type === SaveViewType.CANDIDATE) {
       const candidate = await prismaDB.User.findUnique({
         where: { id: value },
       });
@@ -1731,7 +1734,7 @@ export const viewedDetails = async (req, res) => {
       }
     }
 
-    if (type === "APPLICATION") {
+    if (type === SaveViewType.JOB_APPLICATION) {
       const application = await prismaDB.JobApplication.findUnique({
         where: { id: value },
       });
@@ -1748,16 +1751,17 @@ export const viewedDetails = async (req, res) => {
     const viewLog = await prismaDB.ViewedDetails.create({
       data: {
         userId,
-        viewedBy: userId,
+        viewedBy,
         type,
         value,
       },
     });
 
+    const msg = `${type} viewed successfully.`;
     return actionCompleteResponse({
       res,
-      msg: `${type} viewed successfully.`,
-      data: viewLog,
+      msg,
+      data: { viewLog },
     });
   } catch (error) {
     console.error("Error viewing details:", error);
@@ -1769,191 +1773,166 @@ export const viewedDetails = async (req, res) => {
   }
 };
 
-export const toggleSaveApplication = async (req, res) => {
+/**
+ * @desc Activity Check View and Saved Job, Candidate, Job Apllication
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @return {Object} JSON response with success or error message
+ * @route POST /api/v1/job/common/viewed-details/:type/:id
+ * @access ALL ROLES
+ */
+export const getSaveAndViewActivity = async (req, res) => {
   try {
-    const { applicationId, action } = req.params;
-    const userId = req.user?.id;
+    const {
+      activityType,
+      type,
+      is_active,
+      startDate,
+      endDate,
+      search = "",
+      page,
+      limit,
+      sort = "NEWEST",
+    } = req.query;
 
-    if (!applicationId || !userId || !action) {
+    const userId =
+      req?.employee_obj_id || req?.employer_obj_id || req?.superAdmin_obj_id;
+
+    if (!userId) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.PARAMETER_MISSING,
-        msg: responseMessages.PARAMETER_MISSING,
+        msg: "User not found.",
       });
     }
 
-    // Check application exists
-    const application = await prismaDB.jobApplication.findUnique({
-      where: { id: applicationId },
-    });
+    // Normalize activityType
+    const mode = activityType.toUpperCase();
 
-    if (!application) {
-      return actionFailedResponse({
-        res,
-        errorCode: responseFlags.NOT_FOUND,
-        msg: "Application not found.",
-      });
-    }
-
-    // Check current saved entry
-    const existing = await prismaDB.savedApplication.findFirst({
-      where: { userId, applicationId },
-    });
-
-    // -----------------------------
-    // SAVE LOGIC
-    // -----------------------------
-    if (action === "save") {
-      if (existing && existing.is_active) {
-        return actionCompleteResponse({
-          res,
-          msg: "Application already saved.",
-          data: existing,
-        });
-      }
-
-      if (existing && !existing.is_active) {
-        const updated = await prismaDB.savedApplication.update({
-          where: { id: existing.id },
-          data: { is_active: true },
-        });
-
-        return actionCompleteResponse({
-          res,
-          msg: "Application saved again.",
-          data: updated,
-        });
-      }
-
-      const newSave = await prismaDB.savedApplication.create({
-        data: {
-          userId,
-          applicationId,
-          savedBy: userId,
-        },
-      });
-
-      return actionCompleteResponse({
-        res,
-        msg: "Application saved successfully.",
-        data: newSave,
-      });
-    }
-
-    // -----------------------------
-    // UNSAVE LOGIC
-    // -----------------------------
-    if (action === "unsave") {
-      if (!existing) {
-        return actionFailedResponse({
-          res,
-          errorCode: responseFlags.NOT_FOUND,
-          msg: "Saved application not found.",
-        });
-      }
-
-      if (!existing.is_active) {
-        return actionCompleteResponse({
-          res,
-          msg: "Application already unsaved.",
-          data: existing,
-        });
-      }
-
-      const updated = await prismaDB.savedApplication.update({
-        where: { id: existing.id },
-        data: { is_active: false },
-      });
-
-      return actionCompleteResponse({
-        res,
-        msg: "Application unsaved successfully.",
-        data: updated,
-      });
-    }
-
-    // Invalid action
-    return actionFailedResponse({
-      res,
-      errorCode: responseFlags.INVALID_ACTION,
-      msg: "Invalid action. Use 'save' or 'unsave'.",
-    });
-  } catch (error) {
-    console.error("Error in toggleSaveApplication:", error);
-    return actionFailedResponse({
-      res,
-      errorCode: responseFlags.ACTION_FAILED,
-      msg: error.message || "Error saving/unsaving application",
-    });
-  }
-};
-
-export const viewApplication = async (req, res) => {
-  try {
-    const { applicationId } = req.params;
-    const userId = req.user?.id;
-    const role = req.user?.role;
-
-    if (!applicationId || !userId) {
+    if (!availableSaveViewActivityType.includes(mode)) {
       return actionFailedResponse({
         res,
         errorCode: responseFlags.PARAMETER_MISSING,
-        msg: responseMessages.PARAMETER_MISSING,
+        msg: "Invalid activityType. Must be SAVED, VIEWED, BOTH",
       });
     }
 
-    // Fetch application
-    const application = await prismaDB.jobApplication.findUnique({
-      where: { id: applicationId },
-      include: {
-        employee: {
-          include: { user: true },
-        },
-      },
-    });
+    // Pagination handling
+    const pageNumber = Math.max(Number(page) || 1, 1);
+    const limitNumber = Math.max(Number(limit) || 20, 1);
+    const skip = (pageNumber - 1) * limitNumber;
+    const take = limitNumber;
 
-    if (!application) {
+    if (type && !availableSaveViewType.includes(type)) {
       return actionFailedResponse({
         res,
-        errorCode: responseFlags.NOT_FOUND,
-        msg: "Application not found.",
+        errorCode: responseFlags.PARAMETER_MISSING,
+        msg: "Invalid type filter.",
       });
     }
 
-    // EMPLOYEE can only view his own application
-    if (role === "EMPLOYEE" && application.employee.userId !== userId) {
-      return actionFailedResponse({
-        res,
-        errorCode: responseFlags.UNAUTHORIZED,
-        msg: "You cannot view another user's application.",
+    const orderBy = sort === "OLDEST" ? "asc" : "desc";
+
+    // Base filters
+    const baseFilters = {
+      userId,
+      ...(type && { type }),
+      ...(is_active !== undefined && { is_active: is_active === "true" }),
+      ...(startDate && { createdAt: { gte: new Date(startDate) } }),
+      ...(endDate && { createdAt: { lte: new Date(endDate) } }),
+    };
+
+    // SEARCH Logic
+    let searchFilter = {};
+
+    if (search.trim() !== "") {
+      searchFilter = {
+        OR: [
+          {
+            type: SaveViewType.JOB,
+            value: {
+              in: (
+                await prismaDB.Job.findMany({
+                  where: { title: { contains: search, mode: "insensitive" } },
+                  select: { id: true },
+                })
+              ).map((x) => x.id),
+            },
+          },
+          {
+            type: SaveViewType.CANDIDATE,
+            value: {
+              in: (
+                await prismaDB.User.findMany({
+                  where: {
+                    OR: [
+                      {
+                        firstName: {
+                          contains: search,
+                          mode: "insensitive",
+                        },
+                      },
+                      {
+                        lastName: {
+                          contains: search,
+                          mode: "insensitive",
+                        },
+                      },
+                    ],
+                  },
+                  select: { id: true },
+                })
+              ).map((x) => x.id),
+            },
+          },
+        ],
+      };
+    }
+
+    let savedData = [];
+    let viewedData = [];
+
+    // Fetch SAVED
+    if (mode === "SAVED" || mode === "BOTH") {
+      savedData = await prismaDB.SavedDetails.findMany({
+        where: { ...baseFilters, ...searchFilter },
+        orderBy: { createdAt: orderBy },
+        skip,
+        take,
       });
     }
 
-    // Everyone else (Employer, Admin, SuperAdmin) can view
+    // Fetch VIEWED
+    if (mode === "VIEWED" || mode === "BOTH") {
+      viewedData = await prismaDB.ViewedDetails.findMany({
+        where: { ...baseFilters, ...searchFilter },
+        orderBy: { viewedAt: orderBy },
+        skip,
+        take,
+      });
+    }
 
-    // Log the view
-    const viewLog = await prismaDB.viewedApplication.create({
-      data: {
-        userId,
-        applicationId,
-        viewedBy: userId,
-      },
-    });
-
+    // Send Response
     return actionCompleteResponse({
       res,
-      msg: "Application viewed successfully.",
+      msg: "Activity fetched successfully.",
       data: {
-        application,
-        viewLog,
+        activityType: mode,
+        pagination: {
+          page: pageNumber,
+          limit: limitNumber,
+          skip,
+        },
+        saved: mode !== "VIEWED" ? savedData : [],
+        viewed: mode !== "SAVED" ? viewedData : [],
       },
     });
   } catch (error) {
-    console.error("Error viewing application:", error);
+    console.error("Error fetching activity:", error);
     return actionFailedResponse({
       res,
       errorCode: responseFlags.ACTION_FAILED,
-      msg: error.message || "Error viewing application",
+      msg: error.message,
     });
   }
 };
