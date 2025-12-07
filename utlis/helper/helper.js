@@ -196,7 +196,7 @@ export const sendApplicationStatusEmail = async ({
 
 //Generate Unique id
 export const generateUniqueId = async (type, role) => {
-  const today = moment().format("YYYYMMDD");
+  const today = moment().format("YYYY-MM-DD"); // ← Add dashes to make it ISO-valid
 
   let modelName;
 
@@ -214,16 +214,20 @@ export const generateUniqueId = async (type, role) => {
       throw new Error("Invalid ID generation type");
   }
 
+  const startOfDay = new Date(`${today}T00:00:00Z`);
+  const endOfDay = new Date(`${today}T23:59:59Z`);
+
   const countToday = await modelName.count({
     where: {
       createdAt: {
-        gte: new Date(`${today}T00:00:00Z`),
-        lte: new Date(`${today}T23:59:59Z`),
+        gte: startOfDay,
+        lte: endOfDay,
       },
     },
   });
 
   const serial = String(countToday + 1).padStart(3, "0");
+  const compactDate = today.replace(/-/g, "");
 
-  return `T${type}R${role}DT${today}S${serial}`;
+  return `T${type}R${role}DT${compactDate}S${serial}`;
 };
