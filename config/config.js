@@ -153,11 +153,11 @@ export const ApplicationStatus = {
   APPLICATION_SEND: "APPLICATION_SEND",
   CONTACT_VIEW: "CONTACT_VIEW",
   SELECTED: "SELECTED",
-  SHORTLISTED: "SHORTLISTED", 
+  SHORTLISTED: "SHORTLISTED",
   INTERVIEW_SCHEDULED: "INTERVIEW_SCHEDULED",
   INTERVIEW_COMPLETED: "INTERVIEW_COMPLETED",
   OFFERED: "OFFERED",
-  HIRED: "HIRED"
+  HIRED: "HIRED",
 };
 export const availableApplicationStatus = [
   ApplicationStatus.PENDING,
@@ -192,10 +192,7 @@ export const salaryType = {
   YEARLY: "YEARLY",
   MONTHLY: "MONTHLY",
 };
-export const availableSalaryType = [
-  salaryType.YEARLY,
-  salaryType.MONTHLY,
-];
+export const availableSalaryType = [salaryType.YEARLY, salaryType.MONTHLY];
 
 export const shiftType = {
   MORNING: "MORNING",
@@ -212,4 +209,15 @@ export const availableShiftType = [
   shiftType.NIGHT,
   shiftType.SPLIT,
   shiftType.ROTATIONAL,
+];
+
+export const SaveViewType = {
+  JOB: "JOB",
+  CANDIDATE: "CANDIDATE",
+  JOB_APPLICATION: "JOB_APPLICATION",
+};
+export const availableSaveViewType = [
+  SaveViewType.JOB,
+  SaveViewType.CANDIDATE,
+  SaveViewType.JOB_APPLICATION,
 ];

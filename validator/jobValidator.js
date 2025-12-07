@@ -4,6 +4,7 @@ import {
   availableEmploymentType,
   availableJobMode,
   availableSalaryType,
+  availableSaveViewType,
   availableShiftType,
 } from "../config/config.js";
 
@@ -220,4 +221,15 @@ export const getJobApplicationsValidator = Joi.object({
   order: Joi.string().valid("asc", "desc").optional().default("desc"),
   employerId: Joi.string().uuid().optional(),
   categoryId: Joi.string().uuid().optional(),
+});
+
+
+export const savedDetailsValidator = Joi.object({
+  type: Joi.string().valid(...availableSaveViewType).required(),
+  id: Joi.string().uuid().required(),
+});
+
+export const viewedDetailsValidator = Joi.object({
+  type: Joi.string().valid(...availableSaveViewType).required(),
+  id: Joi.string().uuid().required(),
 });

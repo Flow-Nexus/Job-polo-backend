@@ -47,7 +47,7 @@ enum ApplicationStatus {
   APPLICATION_SEND
   CONTACT_VIEW
   SELECTED
-  SHORTLISTED 
+  SHORTLISTED
   INTERVIEW_SCHEDULED
   INTERVIEW_COMPLETED
   OFFERED
@@ -82,6 +82,12 @@ enum shiftType {
   ROTATIONAL
 }
 
+enum SaveViewType {
+  JOB
+  CANDIDATE
+  JOB_APPLICATION
+}
+
 // ---------------- User (Base Table) ----------------
 model User {
   id                      String       @id @default(uuid())
@@ -110,9 +116,9 @@ model User {
   notifications Notification[]
   messages      Message[]       @relation("UserMessages")
   sentMessages  Message[]       @relation("SentMessages")
-  savedJobs     SavedJob[]      @relation("UserSavedJobs")
-  viewedJobs    ViewedJob[]     @relation("UserViewedJobs")
   reviews       CompanyReview[]
+  savedJobs     SavedDetails[]  @relation("UserSaves")
+  viewedJobs    ViewedDetails[] @relation("UserViews")
 
   // Auth relations
   resetPasswordTokens ResetPasswordToken[]
@@ -195,8 +201,6 @@ model Employee {
 
   user         User             @relation(fields: [userId], references: [id])
   applications JobApplication[]
-  savedJobs    SavedJob[]
-  viewedJobs   ViewedJob[]
 }
 
 // -------------- Employer (Company / Recruiter) ---------------
@@ -343,8 +347,6 @@ model Job {
   category   Category?   @relation(fields: [categoryId], references: [id])
 
   applications     JobApplication[]
-  savedBy          SavedJob[]
-  viewedBy         ViewedJob[]
   jobPostAddresses Address[]        @relation("JobAddresses")
 }
 
@@ -375,35 +377,42 @@ model JobApplication {
 }
 
 // ---------------- Saved Jobs ----------------
-model SavedJob {
-  id         String  @id @default(uuid())
-  userId     String
-  jobId      String
-  employeeId String
-  is_active  Boolean @default(true)
+model SavedDetails {
+  id        String       @id @default(uuid())
+  userId    String
+  type      SaveViewType
+  value     String 
+  is_active Boolean      @default(true)
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   savedBy   String?
 
-  job      Job      @relation(fields: [jobId], references: [id])
-  employee Employee @relation(fields: [employeeId], references: [id])
-  user     User     @relation("UserSavedJobs", fields: [userId], references: [id])
+  // RELATIONS
+  user User @relation("UserSaves", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([type])
+  @@index([value])
 }
 
-// ---------------- Viewed Jobs ----------------
-model ViewedJob {
-  id         String  @id @default(uuid())
-  userId     String
-  jobId      String
-  employeeId String
-  is_active  Boolean @default(true)
+model ViewedDetails {
+  id        String       @id @default(uuid())
+  userId    String
+  type      SaveViewType
+  value     String
+  is_active Boolean      @default(true)
 
-  viewedAt DateTime @default(now())
-  viewedBy String?
+  viewedAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  viewedBy  String?
 
-  job      Job      @relation(fields: [jobId], references: [id])
-  employee Employee @relation(fields: [employeeId], references: [id])
-  user     User     @relation("UserViewedJobs", fields: [userId], references: [id])
+  // RELATIONS
+  user User @relation("UserViews", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([type])
+  @@index([value])
 }
 
 // ---------------- Company Reviews ----------------

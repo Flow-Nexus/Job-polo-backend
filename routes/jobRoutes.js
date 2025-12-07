@@ -11,8 +11,10 @@ import {
   getAllJobApplications,
   getJobsWithFilter,
   postJob,
+  savedDetails,
   updateJob,
   updateJobApplicationStatus,
+  viewedDetails,
   withdrawJobApplication,
 } from "../controllers/jobController.js";
 import {
@@ -21,14 +23,31 @@ import {
   getJobApplicationsValidator,
   getJobsWithValidator,
   postJobValidator,
+  savedDetailsValidator,
   updateJobApplicationStatusValidator,
   updateJobValidator,
+  viewedDetailsValidator,
   withdrawJobApplicationValidator,
 } from "../validator/jobValidator.js";
+import { commonJwtToken } from "../middleware/commonJwt.js";
 
 const jobRoutes = express.Router();
 
 // COMMON ROUTES
+jobRoutes.post(
+  "/common/saved-details/:type/:id",
+  validate({ params: savedDetailsValidator }),
+  commonJwtToken,
+  savedDetails
+);
+
+jobRoutes.post(
+  "/common/viewed-details/:type/:id",
+  validate({ params: viewedDetailsValidator }),
+  commonJwtToken,
+  viewedDetails
+);
+
 
 // EMPLOYEE ROUTES
 jobRoutes.post(
