@@ -813,9 +813,6 @@ export const applyForJob = async (req, res) => {
       });
     }
 
-    console.log("EMPLOYEE OBJ ID:", req.employee_obj_id);
-    console.log("EMPLOYEE DETAILS:", req.employeeDetails);
-
     const resumeFiles = req.files?.resumeFiles || [];
     const workSampleFiles = req.files?.workSampleFiles || [];
 
@@ -926,7 +923,7 @@ export const applyForJob = async (req, res) => {
       // Save parsed object for DB
       req.finalQuestionnaireAnswers = parsedAnswers;
     } else {
-      req.finalQuestionnaireAnswers = null; // No questions required
+      req.finalQuestionnaireAnswers = null; 
     }
 
     // ---------- FILE UPLOAD ----------

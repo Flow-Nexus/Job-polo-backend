@@ -196,7 +196,7 @@ export const sendApplicationStatusEmail = async ({
 
 //Generate Unique id
 export const generateUniqueId = async (type, role) => {
-  const today = moment().format("YYYY-MM-DD"); // ← Add dashes to make it ISO-valid
+  const today = moment().format("YYYY-MM-DD");
 
   let modelName;
 
@@ -217,14 +217,26 @@ export const generateUniqueId = async (type, role) => {
   const startOfDay = new Date(`${today}T00:00:00Z`);
   const endOfDay = new Date(`${today}T23:59:59Z`);
 
-  const countToday = await modelName.count({
-    where: {
+  let whereFilter = {};
+
+  // Choose correct date field based on model type
+  if (type === "APPLICATION") {
+    whereFilter = {
+      appliedAt: {
+        gte: startOfDay,
+        lte: endOfDay,
+      },
+    };
+  } else {
+    whereFilter = {
       createdAt: {
         gte: startOfDay,
         lte: endOfDay,
       },
-    },
-  });
+    };
+  }
+
+  const countToday = await modelName.count({ where: whereFilter });
 
   const serial = String(countToday + 1).padStart(3, "0");
   const compactDate = today.replace(/-/g, "");
