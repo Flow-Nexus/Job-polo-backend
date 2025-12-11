@@ -50,6 +50,12 @@ jobRoutes.post(
   viewedDetails
 );
 
+jobRoutes.get(
+  "/common/get-save-view-activity",
+  validate({ body: getSaveAndViewdActivityValidator }),
+  commonJwtToken,
+  getSaveAndViewActivity
+);
 
 // EMPLOYEE ROUTES
 jobRoutes.post(
@@ -112,13 +118,6 @@ jobRoutes.get(
   validate({ body: getJobApplicationsValidator }),
   employerJwtToken,
   getActiveJobApplications
-);
-
-jobRoutes.get(
-  "/employer/get-save-view-activity",
-  validate({ body: getSaveAndViewdActivityValidator }),
-  employerJwtToken,
-  getSaveAndViewActivity
 );
 
 // SUPERADMIN ROUTES
