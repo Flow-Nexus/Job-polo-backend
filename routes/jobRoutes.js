@@ -6,6 +6,7 @@ import { upload } from "../cloud/cloudinaryCloudStorage.js";
 import { superAdminJwtToken } from "../middleware/superAdminJwt.js";
 import {
   applyForJob,
+  bulkUploadJobPost,
   deleteJob,
   getActiveJobApplications,
   getAllJobApplications,
@@ -126,6 +127,16 @@ jobRoutes.get(
   validate({ body: getJobApplicationsValidator }),
   superAdminJwtToken,
   getAllJobApplications
+);
+
+jobRoutes.post(
+  "/super-admin/bulk-upload-job-post",
+  upload.fields([
+    { name: "excelFile", maxCount: 1 },
+    { name: "logoFiles", maxCount: 1000 },
+  ]),
+  superAdminJwtToken,
+  bulkUploadJobPost
 );
 
 export default jobRoutes;

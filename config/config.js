@@ -67,7 +67,6 @@ export const availableActionType = [
   actionType.JOBPOST,
   actionType.ON_BORDING,
 ];
-
 //for user role
 export const roleType = {
   EMPLOYEE: "EMPLOYEE",
@@ -158,6 +157,7 @@ export const ApplicationStatus = {
   INTERVIEW_COMPLETED: "INTERVIEW_COMPLETED",
   OFFERED: "OFFERED",
   HIRED: "HIRED",
+  SKIPPED: "SKIPPED",
 };
 export const availableApplicationStatus = [
   ApplicationStatus.PENDING,
@@ -175,6 +175,7 @@ export const availableApplicationStatus = [
   ApplicationStatus.INTERVIEW_COMPLETED,
   ApplicationStatus.OFFERED,
   ApplicationStatus.HIRED,
+  ApplicationStatus.SKIPPED,
 ];
 
 export const userStatus = {
@@ -237,7 +238,17 @@ export const sortedBy = {
   NEWEST: "NEWEST",
   OLDEST: "OLDEST",
 };
-export const availableShortedBy = [
-  sortedBy.NEWEST,
-  sortedBy.OLDEST,
+export const availableShortedBy = [sortedBy.NEWEST, sortedBy.OLDEST];
+
+export const uniqueJobType = {
+  USER: "USER",
+  JOB: "JOB",
+  JOB_BULK: "JOB_BULK",
+  APPLICATION: "APPLICATION",
+};
+export const availableUniqueJobType = [
+  uniqueJobType.USER,
+  uniqueJobType.JOB,
+  uniqueJobType.JOB_BULK,
+  uniqueJobType.APPLICATION,
 ];

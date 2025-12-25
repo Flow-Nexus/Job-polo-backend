@@ -13,12 +13,19 @@ import {
   responseFlags,
   responseMessages,
   SaveViewType,
+  uniqueJobType,
   uploadFolderName,
 } from "../config/config.js";
 import { processUploadedFiles } from "../cloud/cloudHelper.js";
 import { deleteFileFromCloudinary } from "../cloud/cloudinaryCloudStorage.js";
 import { JobApplicationStatusMessages } from "../utlis/utlis.js";
-import { sendApplicationStatusEmail, generateUniqueId } from "../utlis/helper/helper.js";
+import {
+  sendApplicationStatusEmail,
+  generateUniqueId,
+  normalizePrismaError,
+} from "../utlis/helper/helper.js";
+import XLSX from "xlsx";
+import { bulkJobPostValidator } from "../validator/jobValidator.js";
 
 /**
  * @desc Job Post by Employer and Super Admin
@@ -923,7 +930,7 @@ export const applyForJob = async (req, res) => {
       // Save parsed object for DB
       req.finalQuestionnaireAnswers = parsedAnswers;
     } else {
-      req.finalQuestionnaireAnswers = null; 
+      req.finalQuestionnaireAnswers = null;
     }
 
     // ---------- FILE UPLOAD ----------
@@ -1019,7 +1026,10 @@ export const applyForJob = async (req, res) => {
     });
 
     //Generating Application ID
-    const applicationUniqueID = await generateUniqueId("APPLICATION", appliedBy);
+    const applicationUniqueID = await generateUniqueId(
+      uniqueJobType.APPLICATION,
+      appliedBy
+    );
 
     let jobApplication;
     let msg;
@@ -1939,6 +1949,312 @@ export const getSaveAndViewActivity = async (req, res) => {
       res,
       errorCode: responseFlags.ACTION_FAILED,
       msg: error.message,
+    });
+  }
+};
+
+/**
+ * @desc Post Job via Bulk Upload by Super Admin
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @return {Object} JSON response with success or error message
+ * @route POST /api/v1/job/common/viewed-details/:type/:id
+ * @access SUPER ADMIN
+ */
+const normalizeFileName = (name = "") =>
+  name
+    .toString()
+    .replace(/\s+/g, "")   // removes spaces, tabs, newlines
+    .toLowerCase();        // case-insensitive match
+
+export const bulkUploadJobPost = async (req, res) => {
+  try {
+    const postedby = req.employerDetails || req.superAdminDetails;
+    const employeeIdBy = req.employer_obj_id;
+    const superAdminIdBy = req.superAdmin_obj_id;
+
+    const excelFile = req.files?.excelFile?.[0];
+    const logoFiles = req.files?.logoFiles || [];
+
+    if (!excelFile) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.PARAMETER_MISSING,
+        msg: "Excel file is required",
+      });
+    }
+
+    /* ---------- WHO IS POSTING ---------- */
+    let employerId = null;
+    let superAdminId = null;
+
+    if (employeeIdBy) {
+      const employer = await prismaDB.Employer.findUnique({
+        where: { userId: employeeIdBy },
+        include: { user: true },
+      });
+
+      if (!employer || !employer.is_active) {
+        return actionFailedResponse({
+          res,
+          errorCode: responseFlags.NOT_FOUND,
+          msg: "Employer not found or inactive",
+        });
+      }
+
+      employerId = employer.id;
+    }
+
+    if (superAdminIdBy) {
+      const superAdmin = await prismaDB.SuperAdmin.findUnique({
+        where: { userId: superAdminIdBy },
+        include: { user: true },
+      });
+
+      if (!superAdmin || !superAdmin.is_active) {
+        return actionFailedResponse({
+          res,
+          errorCode: responseFlags.NOT_FOUND,
+          msg: "Super Admin not found or inactive",
+        });
+      }
+
+      superAdminId = superAdmin.id;
+    }
+
+    /* ---------- READ EXCEL ---------- */
+    const workbook = XLSX.read(excelFile.buffer, { type: "buffer" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+
+    if (!rows.length) {
+      return actionFailedResponse({
+        res,
+        errorCode: responseFlags.BAD_REQUEST,
+        msg: "Excel file contains no data",
+      });
+    }
+
+    /* ---------- MAP LOGOS ---------- */
+    const logoMap = {};
+    for (const file of logoFiles) {
+      logoMap[file.originalname] = file;
+    }
+
+    /* ================== STATS ================== */
+    const totalJobsInExcel = rows.length;
+    let totalJobProcessed = 0;
+    let totalJobPosted = 0;
+    let totalJobNotPosted = 0;
+    let totalJobPostedWithLogo = 0;
+    let totalJobPostedWithoutLogo = 0;
+
+    const failedJobs = [];
+    const uploadedJobs = [];
+
+    /* ================== PROCESS ROWS ================== */
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      totalJobProcessed++;
+
+      let shiftType = [];
+      let logoUploaded = false;
+
+      /* ---------- JOI VALIDATION ---------- */
+      const { error } = bulkJobPostValidator.validate(row, {
+        abortEarly: false,
+        allowUnknown: true,
+      });
+
+      if (error) {
+        totalJobNotPosted++;
+        failedJobs.push({
+          row: i + 1,
+          errorType: "VALIDATION_ERROR",
+          reason: error.details.map((d) => d.message).join(", "),
+          jobData: {
+            title: row.title,
+            companyName: row.companyName,
+            companyEmail: row.companyEmail,
+            categoryId: row.categoryId,
+          },
+          logoStatus: ApplicationStatus.SKIPPED,
+        });
+        continue;
+      }
+
+      try {
+        /* ---------- SAFE PARSING ---------- */
+        const addresses =
+          typeof row.addresses === "string" ? JSON.parse(row.addresses) : [];
+
+        if (row.shiftType) {
+          shiftType = row.shiftType
+            .split(",")
+            .map((s) => s.trim().toUpperCase());
+        }
+
+        const skillsRequired =
+          typeof row.skillsRequired === "string"
+            ? JSON.parse(row.skillsRequired)
+            : [];
+
+        const questionnaire =
+          typeof row.questionnaire === "string"
+            ? JSON.parse(row.questionnaire)
+            : null;
+
+        /* ---------- CREATE JOB ---------- */
+        const jobUniqueID = await generateUniqueId(
+          uniqueJobType.JOB_BULK,
+          postedby
+        );
+
+        const job = await prismaDB.Job.create({
+          data: {
+            jobUniqueID,
+            title: row.title,
+            description: row.description,
+            requirements: row.requirements,
+            responsibilities: row.responsibilities,
+            education: row.education,
+            mode: row.mode,
+            companyName: row.companyName,
+            companyEmail: row.companyEmail,
+            employmentType: row.employmentType,
+            categoryId: row.categoryId,
+            skillsRequired,
+            openings: Number(row.openings) || 0,
+            minExperience: Number(row.minExperience) || 0,
+            maxExperience: Number(row.maxExperience) || 0,
+            salaryType: row.salaryType,
+            minSalary: Number(row.minSalary) || null,
+            maxSalary: Number(row.maxSalary) || null,
+            shiftType,
+            questionnaire,
+            deadline: row.deadline ? new Date(row.deadline) : null,
+            employerId,
+            superAdminId,
+            createdBy: postedby,
+            jobPostAddresses: {
+              create: addresses.map((a) => ({
+                city: a.city,
+                state: a.state,
+                country: a.country,
+                pincode: a.pincode,
+                building: a.building,
+                floor: a.floor,
+                apartment: a.apartment,
+                landmark: a.landmark,
+                additionalInfo: a.additionalInfo,
+                createdBy: postedby,
+              })),
+            },
+          },
+        });
+
+        totalJobPosted++;
+
+        /* ---------- PUSH UPLOADED JOB ---------- */
+        uploadedJobs.push({
+          row: i + 1,
+          jobId: job.id,
+          jobUniqueID: job.jobUniqueID,
+          jobData: {
+            title: row.title,
+            companyName: row.companyName,
+            companyEmail: row.companyEmail,
+            categoryId: row.categoryId,
+            logoUrl: null,
+            logoPreviewUrl: null,
+            employmentType: row.employmentType,
+            shiftType,
+            openings: row.openings,
+          },
+          logoStatus: ApplicationStatus.SKIPPED,
+        });
+
+        const uploadedIndex = uploadedJobs.length - 1;
+
+        /* ---------- LOGO UPLOAD ---------- */
+        const cleanLogoName = row.logoFileName?.trim();
+        console.log(`[${row.logoFileName}]`, Object.keys(logoMap));
+        console.log("gfhgjkj", cleanLogoName);
+        if (cleanLogoName && logoMap[cleanLogoName]) {
+          try {
+            const upload = await uploadToCloudinary(
+              uploadFolderName.JOB_POST_LOGO,
+              logoMap[cleanLogoName]
+            );
+
+            await prismaDB.Job.update({
+              where: { id: job.id },
+              data: {
+                logoUrl: upload.publicLink,
+                logoPreviewUrl: upload.previewLink,
+              },
+            });
+
+            logoUploaded = true;
+            totalJobPostedWithLogo++;
+
+            uploadedJobs[uploadedIndex].logoStatus = ApplicationStatus.UPLOADED;
+            uploadedJobs[uploadedIndex].jobData.logoUrl = upload.publicLink;
+            uploadedJobs[uploadedIndex].jobData.logoPreviewUrl =
+              upload.previewLink;
+          } catch (err) {
+            uploadedJobs[uploadedIndex].logoStatus = ApplicationStatus.FAILED;
+          }
+        }
+        // ONE PLACE ONLY
+        if (!logoUploaded) {
+          totalJobPostedWithoutLogo++;
+        }
+      } catch (err) {
+        totalJobNotPosted++;
+        const normalizedError = normalizePrismaError(err);
+
+        failedJobs.push({
+          row: i + 1,
+          errorType: normalizedError.type,
+          reason: normalizedError.message,
+          jobData: {
+            title: row.title,
+            companyName: row.companyName,
+            companyEmail: row.companyEmail,
+            categoryId: row.categoryId,
+            logoUrl: null,
+            logoPreviewUrl: null,
+            employmentType: row.employmentType,
+            shiftType,
+            openings: row.openings,
+          },
+          logoStatus: ApplicationStatus.SKIPPED,
+        });
+      }
+    }
+
+    /* ================== FINAL RESPONSE ================== */
+    return actionCompleteResponse({
+      res,
+      msg: `Bulk job upload processed. ${totalJobPosted} out of ${totalJobsInExcel} jobs posted successfully.`,
+      data: {
+        totalJobsInExcel,
+        totalJobProcessed,
+        totalJobPosted,
+        totalJobNotPosted,
+        totalJobPostedWithLogo,
+        totalJobPostedWithoutLogo,
+        uploadedJobs,
+        failedJobs,
+      },
+    });
+  } catch (error) {
+    console.error("Bulk upload error:", error);
+    return actionFailedResponse({
+      res,
+      errorCode: responseFlags.ACTION_FAILED,
+      msg: error.message || "Bulk upload failed",
     });
   }
 };

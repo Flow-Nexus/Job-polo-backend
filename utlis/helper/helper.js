@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import nodemailer from "nodemailer";
 import moment from "moment";
 import prismaDB from "../prisma.js";
+import { uniqueJobType } from "../../config/config.js";
 
 dotenv.config();
 
@@ -201,13 +202,16 @@ export const generateUniqueId = async (type, role) => {
   let modelName;
 
   switch (type) {
-    case "USER":
+    case uniqueJobType.USER:
       modelName = prismaDB.User;
       break;
-    case "JOB":
+    case uniqueJobType.JOB:
       modelName = prismaDB.Job;
       break;
-    case "APPLICATION":
+    case uniqueJobType.JOB_BULK:
+      modelName = prismaDB.Job;
+      break;
+    case uniqueJobType.APPLICATION:
       modelName = prismaDB.JobApplication;
       break;
     default:
@@ -220,7 +224,7 @@ export const generateUniqueId = async (type, role) => {
   let whereFilter = {};
 
   // Choose correct date field based on model type
-  if (type === "APPLICATION") {
+  if (type === uniqueJobType.APPLICATION) {
     whereFilter = {
       appliedAt: {
         gte: startOfDay,
@@ -242,4 +246,35 @@ export const generateUniqueId = async (type, role) => {
   const compactDate = today.replace(/-/g, "");
 
   return `T${type}R${role}DT${compactDate}S${serial}`;
+};
+
+/* ================== PRISMA ERROR NORMALIZER ================== */
+export const normalizePrismaError = (err) => {
+  // Foreign key constraint failed
+  if (err.code === "P2003") {
+    if (err.meta?.field_name?.includes("categoryId")) {
+      return {
+        type: "INVALID_CATEGORY",
+        message: "Category does not exist",
+      };
+    }
+
+    return {
+      type: "FOREIGN_KEY_ERROR",
+      message: "Invalid reference data",
+    };
+  }
+
+  // Unique constraint failed
+  if (err.code === "P2002") {
+    return {
+      type: "DUPLICATE_RECORD",
+      message: "Duplicate record detected",
+    };
+  }
+
+  return {
+    type: "UNKNOWN_ERROR",
+    message: err.message || "Unknown database error",
+  };
 };

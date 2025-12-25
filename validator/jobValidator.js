@@ -16,9 +16,6 @@ export const postJobValidator = Joi.object({
   requirements: Joi.string().allow(""),
   responsibilities: Joi.string().allow(""),
   education: Joi.string().allow(""),
-
-  // ------------------- NEW FIELDS -------------------
-
   minExperience: Joi.number().integer().min(0).optional(),
   maxExperience: Joi.number()
     .integer()
@@ -32,7 +29,7 @@ export const postJobValidator = Joi.object({
   shiftType: Joi.alternatives()
     .try(
       Joi.array().items(Joi.string().valid(...availableShiftType)),
-      Joi.string() // allow stringified JSON
+      Joi.string() 
     )
     .optional(),
   questionnaire: Joi.alternatives()
@@ -44,14 +41,11 @@ export const postJobValidator = Joi.object({
         noticePeriod: Joi.string().optional(),
         dob: Joi.string().optional(),
       })
-        .unknown(true) // allow dynamic Q selections
+        .unknown(true) 
         .optional(),
-      Joi.string() // allow JSON string from frontend
+      Joi.string() 
     )
     .optional(),
-
-  // experienceRange: Joi.string().allow(""),
-  // salaryRange: Joi.string().allow(""),
   companyName: Joi.string().allow("").required(),
   companyEmail: Joi.string()
     .email({ tlds: { allow: false } })
@@ -267,4 +261,52 @@ export const getSaveAndViewdActivityValidator = Joi.object({
     .messages({
       "any.only": "sort must be newest or oldest",
     }),
+});
+
+export const bulkJobPostValidator = Joi.object({
+  title: Joi.string().required(),
+  description: Joi.string().required(),
+  requirements: Joi.string().allow("", null),
+  responsibilities: Joi.string().allow("", null),
+  education: Joi.string().allow("", null),
+  mode: Joi.string().valid(...availableJobMode).required(),
+  companyName: Joi.string().trim().required(),
+  companyEmail: Joi.string().email().required(),
+  categoryId: Joi.string().required(),
+  employmentType: Joi.string()
+    .valid(...availableEmploymentType)
+    .required(),
+  skillsRequired: Joi.alternatives()
+    .try(Joi.array().items(Joi.string()), Joi.string())
+    .required(),
+  openings: Joi.number().integer().min(1).required(),
+  deadline: Joi.date().iso().allow(null),
+  minExperience: Joi.number().integer().min(0).allow(null),
+  maxExperience: Joi.number().integer().min(0).allow(null),
+  salaryType: Joi.string().valid(...availableSalaryType).allow(null),
+  minSalary: Joi.number().min(0).allow(null),
+  maxSalary: Joi.number().min(0).allow(null),
+  shiftType: Joi.alternatives()
+    .try(Joi.array().items(Joi.string()), Joi.string())
+    .allow(null),
+  questionnaire: Joi.alternatives().try(Joi.object(), Joi.string()).allow(null),
+  addresses: Joi.alternatives()
+    .try(
+      Joi.array().items(
+        Joi.object({
+          city: Joi.string().required(),
+          state: Joi.string().required(),
+          country: Joi.string().required(),
+          pincode: Joi.string().allow("", null),
+          building: Joi.string().allow("", null),
+          floor: Joi.string().allow("", null),
+          apartment: Joi.string().allow("", null),
+          landmark: Joi.string().allow("", null),
+          additionalInfo: Joi.string().allow("", null),
+        })
+      ),
+      Joi.string()
+    )
+    .required(),
+  logoFileName: Joi.string().allow("", null),
 });

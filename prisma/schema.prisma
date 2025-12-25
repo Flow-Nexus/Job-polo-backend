@@ -331,8 +331,8 @@ model Job {
   skillsRequired   String[]
   openings         Int?            @default(1)
   deadline         DateTime?
-  logoUrl          String
-  logoPreviewUrl   String
+  logoUrl          String?
+  logoPreviewUrl   String?
   employerId       String?
   superAdminId     String?
   categoryId       String?
