@@ -1498,17 +1498,46 @@ export const getAllJobApplications = async (req, res) => {
 
     // Search filter (on employee name or job title)
     const searchFilter = search
-      ? {
-          OR: [
-            {
-              employee: {
-                user: { name: { contains: search, mode: "insensitive" } },
-              },
+  ? {
+      OR: [
+        {
+          employee: {
+            user: {
+              OR: [
+                {
+                  firstName: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  lastName: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
+                {
+                  email: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
+              ],
             },
-            { job: { title: { contains: search, mode: "insensitive" } } },
-          ],
-        }
-      : {};
+          },
+        },
+        {
+          job: {
+            title: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+        },
+      ],
+    }
+  : {};
+
 
     // Fetch from DB
     const jobApplications = await prismaDB.JobApplication.findMany({
